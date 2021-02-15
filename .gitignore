@@ -249,5 +249,4 @@ test/**/out/**/*.lua
 /CSharp.lua/Properties/launchSettings.json
 /CSharp.lua.Launcher/Properties/launchSettings.json
 /download/*.zip
-/CSharp.lua/MetaResources.Designer.cs
 /CSharp.lua.Tests/Output
