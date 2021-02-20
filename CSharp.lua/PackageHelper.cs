@@ -51,6 +51,7 @@ namespace CSharpLua {
     public string PackagePath { get; set; }
     public string FrameworkShortFolderName { get; set; }
     public string VersionNormalizedString { get; set; }
+    internal bool? IsDecompile { get; set; }
   }
 
   public static class PackageHelper {
