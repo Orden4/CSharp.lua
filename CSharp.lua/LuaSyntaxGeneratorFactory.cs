@@ -96,7 +96,7 @@ namespace CSharpLua {
         }
       }
       var codes = files.Select(i => (File.ReadAllText(i), i));
-      var metas = settings.metas_.Concat(packages/*.Where(package => !IsDecompile(package, settings))*/.SelectMany(package => PackageHelper.EnumerateMetas(package)));
+      var metas = settings.metas_.Concat(packages.Where(package => !IsDecompile(package, settings)).SelectMany(package => PackageHelper.EnumerateMetas(package)));
       var libs = GetLibs(settings.libs_.Concat(packages.Where(package => !IsDecompile(package, settings)).SelectMany(package => PackageHelper.EnumerateLibs(package))), out var luaModuleLibs);
       settingInfo.LuaModuleLibs = luaModuleLibs.ToHashSet();
 
@@ -108,7 +108,7 @@ namespace CSharpLua {
       }
 
       var fileBannerLines = new List<string>();
-      if (packages != null && packages.Count() > 0) {
+      if (packages != null && packages.Any()) {
         fileBannerLines.Add("Compiled with the following packages:");
         fileBannerLines.AddRange(packages
           .Select(package => $"  {package.PackageName}: v{package.VersionNormalizedString}{(IsDecompile(package, settings) ? " (decompiled)" : string.Empty)}")

@@ -32,8 +32,8 @@
     <PackageReleaseNotes></PackageReleaseNotes>
 
     <PackageId>War3Net.CSharpLua</PackageId>
-    <Version>1.7.6</Version>
-    <FileVersion>1.7.6</FileVersion>
+    <Version>1.7.7</Version>
+    <FileVersion>1.7.7</FileVersion>
     <AssemblyVersion>1.7</AssemblyVersion>
   </PropertyGroup>
 
