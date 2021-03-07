@@ -1,6 +1,10 @@
 #nullable enable
 
 using Cake.Incubator.Project;
+using ICSharpCode.Decompiler;
+using ICSharpCode.Decompiler.CSharp;
+using ICSharpCode.Decompiler.CSharp.OutputVisitor;
+using ICSharpCode.Decompiler.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -82,8 +86,20 @@ namespace CSharpLua {
 
                 var fileName = Path.Combine(baseFolder, packageFileNameWithoutExtension + ".cs");
                 if (!File.Exists(fileName)) {
-                  var decompiler = new ICSharpCode.Decompiler.CSharp.CSharpDecompiler(lib, new ICSharpCode.Decompiler.DecompilerSettings());
-                  File.WriteAllText(fileName, decompiler.DecompileWholeModuleAsString());
+                  var decompilerSettings = new DecompilerSettings {
+                    ThrowOnAssemblyResolveErrors = false, // temp
+                  };
+
+                  var decompiler = new CSharpDecompiler(lib, decompilerSettings);
+                  var syntaxTree = decompiler.DecompileWholeModuleAsSingleFile();
+                  foreach (var child in syntaxTree.Children) {
+                    if (child is AttributeSection attributeSection && attributeSection.AttributeTarget == "assembly") {
+                      child.Remove();
+                    }
+                  }
+
+                  using var fileWriter = File.CreateText(fileName);
+                  syntaxTree.AcceptVisitor(new CSharpOutputVisitor(fileWriter, decompilerSettings.CSharpFormattingOptions));
                 }
 
                 return fileName;
