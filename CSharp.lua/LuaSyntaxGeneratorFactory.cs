@@ -5,10 +5,14 @@ using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.CSharp;
 using ICSharpCode.Decompiler.CSharp.OutputVisitor;
 using ICSharpCode.Decompiler.CSharp.Syntax;
+using ICSharpCode.Decompiler.Metadata;
+using ICSharpCode.Decompiler.TypeSystem;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Text.RegularExpressions;
 
 namespace CSharpLua {
@@ -57,6 +61,18 @@ namespace CSharpLua {
       var files = GetProjectsSourceFiles(projects);
       var packageBaseFolders = new List<string>();
       if (packages != null) {
+        var searchDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var package in packages) {
+          if (IsDecompile(package, settings)) {
+            PackageHelper.EnumerateLibs(package, out var baseFolder);
+            if (string.IsNullOrWhiteSpace(baseFolder)) {
+              continue;
+            }
+
+            searchDirectories.Add(baseFolder);
+          }
+        }
+
         foreach (var package in packages) {
           var packageFiles = PackageHelper.EnumerateSourceFiles(package, out var baseFolder).ToArray();
           if (packageFiles.Length > 0) {
@@ -82,15 +98,38 @@ namespace CSharpLua {
               var decompiledLibFiles = packageLibs.Select(lib =>
               {
                 var libFileInfo = new FileInfo(lib);
-                var packageFileNameWithoutExtension = libFileInfo.Name.Substring(0, libFileInfo.Name.Length - libFileInfo.Extension.Length);
+                var packageFileNameWithoutExtension = Path.GetFileNameWithoutExtension(libFileInfo.Name);
 
                 var fileName = Path.Combine(baseFolder, packageFileNameWithoutExtension + ".cs");
                 if (!File.Exists(fileName)) {
                   var decompilerSettings = new DecompilerSettings {
-                    ThrowOnAssemblyResolveErrors = false, // temp
+                    LoadInMemory = true,
+                    ThrowOnAssemblyResolveErrors = true,
                   };
 
-                  var decompiler = new CSharpDecompiler(lib, decompilerSettings);
+                  var metadataOptions = decompilerSettings.ApplyWindowsRuntimeProjections
+                    ? MetadataReaderOptions.ApplyWindowsRuntimeProjections
+                    : MetadataReaderOptions.None;
+
+                  var peFile = new PEFile(
+                    lib,
+                    File.OpenRead(lib),
+                    PEStreamOptions.PrefetchEntireImage,
+                    metadataOptions);
+
+                  var assemblyResolver = new UniversalAssemblyResolver(
+                    lib,
+                    decompilerSettings.ThrowOnAssemblyResolveErrors,
+                    peFile.DetectTargetFrameworkId(),
+                    decompilerSettings.LoadInMemory ? PEStreamOptions.PrefetchMetadata : PEStreamOptions.Default,
+                    metadataOptions);
+
+                  foreach (var searchDirectory in searchDirectories) {
+                    assemblyResolver.AddSearchDirectory(searchDirectory);
+                  }
+
+                  var decompilerTypeSystem = new DecompilerTypeSystem(peFile, assemblyResolver, decompilerSettings);
+                  var decompiler = new CSharpDecompiler(decompilerTypeSystem, decompilerSettings);
                   var syntaxTree = decompiler.DecompileWholeModuleAsSingleFile();
                   foreach (var child in syntaxTree.Children) {
                     if (child is AttributeSection attributeSection && attributeSection.AttributeTarget == "assembly") {
