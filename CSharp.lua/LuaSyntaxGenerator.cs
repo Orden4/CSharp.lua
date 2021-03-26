@@ -75,6 +75,7 @@ namespace CSharpLua {
       public bool IsPreventDebugObject { get; set; }
       public bool IsCommentsDisabled { get; set; }
       public bool IsNotConstantForEnum { get; set; }
+      public bool IsNoConcurrent { get; set; }
 
       public SettingInfo() {
         Indent = 2;
@@ -162,22 +163,22 @@ namespace CSharpLua {
     public const string kManifestFuncName = "InitCSharp";
 
     private const string kLuaSuffix = ".lua";
-    private bool isConcurrent_ = true;
     private static readonly Encoding Encoding = new UTF8Encoding(false);
 
     private readonly CSharpCompilation compilation_;
     public XmlMetaProvider XmlMetaProvider { get; }
     public CSharpCommandLineArguments CommandLineArguments { get; }
     public SettingInfo Setting { get; set; }
-    private readonly ConcurrentHashSet<string> exportEnums_ = new ConcurrentHashSet<string>();
-    private readonly ConcurrentHashSet<INamedTypeSymbol> ignoreExportTypes_ = new ConcurrentHashSet<INamedTypeSymbol>();
-    private readonly ConcurrentHashSet<ISymbol> forcePublicSymbols_ = new ConcurrentHashSet<ISymbol>();
-    private readonly ConcurrentList<LuaEnumDeclarationSyntax> enumDeclarations_ = new ConcurrentList<LuaEnumDeclarationSyntax>();
-    private readonly ConcurrentDictionary<INamedTypeSymbol, ConcurrentList<PartialTypeDeclaration>> partialTypes_ = new ConcurrentDictionary<INamedTypeSymbol, ConcurrentList<PartialTypeDeclaration>>();
+    private bool IsConcurrent => !Setting.IsNoConcurrent;
+    private readonly ConcurrentHashSet<string> exportEnums_ = new();
+    private readonly ConcurrentHashSet<INamedTypeSymbol> ignoreExportTypes_ = new();
+    private readonly ConcurrentHashSet<ISymbol> forcePublicSymbols_ = new();
+    private readonly ConcurrentList<LuaEnumDeclarationSyntax> enumDeclarations_ = new();
+    private readonly ConcurrentDictionary<INamedTypeSymbol, ConcurrentList<PartialTypeDeclaration>> partialTypes_ = new();
     private readonly ImmutableList<string> fileBanner_;
     private readonly ImmutableHashSet<string> monoBehaviourSpecialMethodNames_;
     private ImmutableList<LuaExpressionSyntax> assemblyAttributes_ = ImmutableList<LuaExpressionSyntax>.Empty;
-
+    private readonly ConcurrentDictionary<INamedTypeSymbol, ConcurrentHashSet<INamedTypeSymbol>> genericImportDepends_ = new();
     private IMethodSymbol mainEntryPoint_;
     public INamedTypeSymbol SystemExceptionTypeSymbol { get; }
     private readonly INamedTypeSymbol monoBehaviourTypeSymbol_;
@@ -191,7 +192,7 @@ namespace CSharpLua {
 
     private CSharpCompilationOptions WithOptions(CSharpCompilationOptions compilationOptions) {
       return compilationOptions
-        .WithConcurrentBuild(isConcurrent_)
+        .WithConcurrentBuild(IsConcurrent)
         .WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
         .WithMetadataImportOptions(MetadataImportOptions.All);
     }
@@ -205,7 +206,7 @@ namespace CSharpLua {
     }
 
     private IEnumerable<SyntaxTree> BuildSyntaxTrees(IEnumerable<(string Text, string Path)> codes, CSharpParseOptions parseOptions) {
-      if (isConcurrent_) {
+      if (IsConcurrent) {
         var tasks = codes.Select(i => BuildSyntaxTreeAsync(i, parseOptions));
         return Task.WhenAll(tasks).Result;
       } else {
@@ -236,11 +237,10 @@ namespace CSharpLua {
       : this(codes, ToFileStreams(libs), cscArguments, ToFileStreams(metas), setting, fileBannerLines) {
     }
 
-    public LuaSyntaxGenerator(IEnumerable<(string Text, string Path)> codes, IEnumerable<Stream> libs, IEnumerable<string> cscArguments, IEnumerable<Stream> metas, SettingInfo setting, IEnumerable<string> fileBannerLines = null, bool isConcurrent = true) {
-      isConcurrent_ = isConcurrent;
+    public LuaSyntaxGenerator(IEnumerable<(string Text, string Path)> codes, IEnumerable<Stream> libs, IEnumerable<string> cscArguments, IEnumerable<Stream> metas, SettingInfo setting, IEnumerable<string> fileBannerLines = null) {
+      Setting = setting;
       (compilation_, CommandLineArguments) = BuildCompilation(codes, libs, cscArguments, setting);
       XmlMetaProvider = new XmlMetaProvider(metas);
-      Setting = setting;
       if (Setting.ExportEnums != null) {
         exportEnums_.UnionWith(Setting.ExportEnums);
       }
@@ -270,7 +270,7 @@ namespace CSharpLua {
 
     private IEnumerable<LuaCompilationUnitSyntax> Create(bool isSingleFile = false) {
       List<LuaCompilationUnitSyntax> luaCompilationUnits;
-      if (isConcurrent_) {
+      if (IsConcurrent) {
         try {
           var tasks = compilation_.SyntaxTrees.Select(i => CreateCompilationUnitAsync(i, isSingleFile));
           luaCompilationUnits = Task.WhenAll(tasks).Result.ToList();
@@ -647,6 +647,8 @@ namespace CSharpLua {
             foreach (var interfaceType in type.Interfaces) {
               AddSuperTypeTo(parentTypes, type, interfaceType);
             }
+
+            AddGenericImportDependTo(parentTypes, type);
           }
 
           if (parentTypes.Count == 0) {
@@ -744,6 +746,21 @@ namespace CSharpLua {
           t.Add(kAssembly, function);
         }
       }
+    }
+
+    private void AddGenericImportDependTo(HashSet<INamedTypeSymbol> parentTypes, INamedTypeSymbol type) {
+      var set = genericImportDepends_.GetOrDefault(type);
+      if (set != null) {
+        parentTypes.UnionWith(set);
+      }
+    }
+
+    internal bool AddGenericImportDepend(INamedTypeSymbol definition, INamedTypeSymbol type) {
+      if (type != null && type.IsFromCode() && !definition.IsContainsInternalSymbol(type)) {
+        var set = genericImportDepends_.GetOrAdd(definition, i => new ConcurrentHashSet<INamedTypeSymbol>());
+        return set.Add(type);
+      }
+      return false;
     }
 
     #region     // member name refactor
@@ -1439,14 +1456,14 @@ namespace CSharpLua {
     }
 
     #endregion
-    private readonly Dictionary<ISymbol, HashSet<ISymbol>> implicitInterfaceImplementations_ = new Dictionary<ISymbol, HashSet<ISymbol>>();
-    private readonly Dictionary<INamedTypeSymbol, Dictionary<ISymbol, ISymbol>> implicitInterfaceTypes_ = new Dictionary<INamedTypeSymbol, Dictionary<ISymbol, ISymbol>>();
-    private readonly HashSet<INamedTypeSymbol> typesOfExtendSelf_ = new HashSet<INamedTypeSymbol>();
+    private readonly Dictionary<ISymbol, HashSet<ISymbol>> implicitInterfaceImplementations_ = new();
+    private readonly Dictionary<INamedTypeSymbol, Dictionary<ISymbol, ISymbol>> implicitInterfaceTypes_ = new();
+    private readonly HashSet<INamedTypeSymbol> typesOfExtendSelf_ = new();
 
-    private readonly ConcurrentDictionary<IPropertySymbol, bool> isFieldPropertys_ = new ConcurrentDictionary<IPropertySymbol, bool>();
-    private readonly ConcurrentDictionary<IEventSymbol, bool> isFieldEvents_ = new ConcurrentDictionary<IEventSymbol, bool>();
-    private readonly ConcurrentDictionary<ISymbol, bool> isMoreThanLocalVariables_ = new ConcurrentDictionary<ISymbol, bool>();
-    private readonly ConcurrentDictionary<ISymbol, LuaSymbolNameSyntax> propertyOrEvnetInnerFieldNames_ = new ConcurrentDictionary<ISymbol, LuaSymbolNameSyntax>();
+    private readonly ConcurrentDictionary<IPropertySymbol, bool> isFieldPropertys_ = new();
+    private readonly ConcurrentDictionary<IEventSymbol, bool> isFieldEvents_ = new();
+    private readonly ConcurrentDictionary<ISymbol, bool> isMoreThanLocalVariables_ = new();
+    private readonly ConcurrentDictionary<ISymbol, LuaSymbolNameSyntax> propertyOrEvnetInnerFieldNames_ = new();
     private readonly ConcurrentHashSet<ISymbol> inlineSymbols_ = new ConcurrentHashSet<ISymbol>();
 
     private sealed class PretreatmentChecker : CSharpSyntaxWalker {
