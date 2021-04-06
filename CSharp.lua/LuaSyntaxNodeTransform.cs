@@ -2250,6 +2250,7 @@ namespace CSharpLua {
               CurCompilationUnit.ImportLinq();
             }
           }
+#if false
           else if (!symbol.IsStatic) {
             if (memberAccessExpression != null) {
               argumentExpressions.Add(() => memberAccessExpression.Expression.AcceptExpression(this));
@@ -2258,6 +2259,7 @@ namespace CSharpLua {
               argumentExpressions.Add(() => conditionalTemps_.Peek());
             }
           }
+#endif
 
           FillCodeTemplateInvocationArguments(symbol, node.ArgumentList, argumentExpressions);
           var invocationExpression = InternalBuildCodeTemplateExpression(
