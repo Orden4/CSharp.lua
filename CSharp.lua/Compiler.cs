@@ -93,7 +93,7 @@ namespace CSharpLua {
     }
 
     private static IEnumerable<string> GetIncludeCoreSystemPaths(string dir) {
-      const string kBeinMark = "load(\"";
+      const string kBeginMark = "load(\"";
 
       string allFilePath = Path.Combine(dir, "All.lua");
       if (!File.Exists(allFilePath)) {
@@ -103,9 +103,9 @@ namespace CSharpLua {
       List<string> luaSystemLibs = new();
       var lines = File.ReadAllLines(allFilePath);
       foreach (string line in lines) {
-        int i = line.IndexOf(kBeinMark);
+        int i = line.IndexOf(kBeginMark);
         if (i != -1) {
-          int begin = i + kBeinMark.Length;
+          int begin = i + kBeginMark.Length;
           int end = line.IndexOf('"', begin);
           Contract.Assert(end != -1);
           string name = line[begin..end].Replace('.', '/');

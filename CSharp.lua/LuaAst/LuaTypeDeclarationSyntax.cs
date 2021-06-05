@@ -18,11 +18,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CSharpLua.LuaAst {
-  public sealed class LuaSpeaicalGenericType {
+  public sealed class LuaSpecialGenericType {
     public LuaIdentifierNameSyntax Name;
     public LuaExpressionSyntax Value;
     public bool IsLazy;
@@ -137,7 +135,7 @@ namespace CSharpLua.LuaAst {
       return true;
     }
 
-    internal void AddBaseTypes(IEnumerable<LuaExpressionSyntax> baseTypes, LuaSpeaicalGenericType genericArgument, List<LuaIdentifierNameSyntax> baseCopyFields) {
+    internal void AddBaseTypes(IEnumerable<LuaExpressionSyntax> baseTypes, LuaSpecialGenericType genericArgument, List<LuaIdentifierNameSyntax> baseCopyFields) {
       bool hasLazyGenericArgument = false;
       if (genericArgument != null) {
         if (genericArgument.IsLazy) {

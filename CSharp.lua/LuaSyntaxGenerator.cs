@@ -202,7 +202,7 @@ namespace CSharpLua {
     }
 
     private static Task<SyntaxTree> BuildSyntaxTreeAsync((string Text, string Path) code, CSharpParseOptions parseOptions) {
-      return Task.Factory.StartNew(o => ParseText(code, parseOptions), null);
+      return Task.Factory.StartNew(_ => ParseText(code, parseOptions), null);
     }
 
     private IEnumerable<SyntaxTree> BuildSyntaxTrees(IEnumerable<(string Text, string Path)> codes, CSharpParseOptions parseOptions) {
@@ -214,8 +214,8 @@ namespace CSharpLua {
       }
     }
 
-    private (CSharpCompilation, CSharpCommandLineArguments) BuildCompilation(IEnumerable<(string Text, string Path)> codes, IEnumerable<Stream> libs, IEnumerable<string> cscArguments, SettingInfo setting) {
-      var commandLineArguments = CSharpCommandLineParser.Default.Parse((cscArguments ?? Array.Empty<string>()).Concat(new string[] { "-define:__CSharpLua__" }), null, null);
+    private (CSharpCompilation, CSharpCommandLineArguments) BuildCompilation(IEnumerable<(string Text, string Path)> codes, IEnumerable<Stream> libs, IEnumerable<string> cscArguments) {
+      var commandLineArguments = CSharpCommandLineParser.Default.Parse((cscArguments ?? Array.Empty<string>()).Concat(new[] { "-define:__CSharpLua__" }), null, null);
       var parseOptions = commandLineArguments.ParseOptions.WithLanguageVersion(LanguageVersion.Preview).WithDocumentationMode(DocumentationMode.Parse);
       var syntaxTrees = BuildSyntaxTrees(codes, parseOptions);
       var references = libs.Select(i => MetadataReference.CreateFromStream(i)).ToList();
@@ -239,7 +239,7 @@ namespace CSharpLua {
 
     public LuaSyntaxGenerator(IEnumerable<(string Text, string Path)> codes, IEnumerable<Stream> libs, IEnumerable<string> cscArguments, IEnumerable<Stream> metas, SettingInfo setting, IEnumerable<string> fileBannerLines = null) {
       Setting = setting;
-      (compilation_, CommandLineArguments) = BuildCompilation(codes, libs, cscArguments, setting);
+      (compilation_, CommandLineArguments) = BuildCompilation(codes, libs, cscArguments);
       XmlMetaProvider = new XmlMetaProvider(metas);
       if (Setting.ExportEnums != null) {
         exportEnums_.UnionWith(Setting.ExportEnums);
@@ -251,7 +251,7 @@ namespace CSharpLua {
       if (compilation_.ReferencedAssemblyNames.Any(i => i.Name.Contains("UnityEngine"))) {
         monoBehaviourTypeSymbol_ = compilation_.GetTypeByMetadataName("UnityEngine.MonoBehaviour");
         if (monoBehaviourTypeSymbol_ != null) {
-          monoBehaviourSpecialMethodNames_ = new string[] { "Awake", "Start", "Update", "FixedUpdate", "LateUpdate" }.ToImmutableHashSet();
+          monoBehaviourSpecialMethodNames_ = new[] { "Awake", "Start", "Update", "FixedUpdate", "LateUpdate" }.ToImmutableHashSet();
         }
       }
       DoPretreatment();
@@ -260,8 +260,8 @@ namespace CSharpLua {
     private LuaCompilationUnitSyntax CreateCompilationUnit(SyntaxTree syntaxTree, bool isSingleFile) {
       var semanticModel = GetSemanticModel(syntaxTree);
       var compilationUnitSyntax = (CompilationUnitSyntax)syntaxTree.GetRoot();
-      var transfor = new LuaSyntaxNodeTransform(this, semanticModel);
-      return transfor.VisitCompilationUnit(compilationUnitSyntax, isSingleFile);
+      var transform = new LuaSyntaxNodeTransform(this, semanticModel);
+      return transform.VisitCompilationUnit(compilationUnitSyntax, isSingleFile);
     }
 
     private Task<LuaCompilationUnitSyntax> CreateCompilationUnitAsync(SyntaxTree syntaxTree, bool isSingleFile) {
@@ -278,7 +278,7 @@ namespace CSharpLua {
           if (e.InnerExceptions.Count > 0) {
             throw e.InnerExceptions.First();
           } else {
-            throw e;
+            throw;
           }
         }
       } else {
@@ -369,19 +369,19 @@ namespace CSharpLua {
     }
 
     private static string GetSystemLibName(string path) {
-      const string begin = "CoreSystem";
-      int index = path.LastIndexOf(begin);
-      return path.Substring(index + begin.Length + 1);
+      const string kBegin = "CoreSystem";
+      int index = path.LastIndexOf(kBegin, StringComparison.InvariantCulture);
+      return path.Substring(index + kBegin.Length + 1);
     }
 
     private static void RemoveLicenseComments(ref string code) {
       const string kBegin = "--[[";
       const string kEnd = "--]]";
-      int i = code.IndexOf(kBegin);
+      int i = code.IndexOf(kBegin, StringComparison.InvariantCulture);
       if (i != -1) {
         bool isSpace = code.Take(i).All(char.IsWhiteSpace);
         if (isSpace) {
-          int j = code.IndexOf(kEnd, i + kBegin.Length);
+          int j = code.IndexOf(kEnd, i + kBegin.Length, StringComparison.InvariantCulture);
           Contract.Assert(j != -1);
           code = code.Substring(j + kEnd.Length).Trim();
         }
@@ -446,17 +446,17 @@ namespace CSharpLua {
       return Path.GetFileName(path);
     }
 
-    private string GetOutFileAbsolutePath(string inFilePath, string output_, out string module) {
-      return GetOutFileRelativePath(RemoveBaseFolder(inFilePath), output_, out module);
+    private string GetOutFileAbsolutePath(string inFilePath, string output, out string module) {
+      return GetOutFileRelativePath(RemoveBaseFolder(inFilePath), output, out module);
     }
 
-    private string GetOutFileRelativePath(string path, string output_, out string module) {
+    private static string GetOutFileRelativePath(string path, string output, out string module) {
       string extend = Path.GetExtension(path);
       path = path.Remove(path.Length - extend.Length, extend.Length);
       path = path.Replace('.', '_');
-      string outPath = Path.Combine(output_, path + kLuaSuffix);
+      string outPath = Path.Combine(output, path + kLuaSuffix);
       string dir = Path.GetDirectoryName(outPath);
-      if (!Directory.Exists(dir)) {
+      if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) {
         Directory.CreateDirectory(dir);
       }
       module = path.Replace(Path.DirectorySeparatorChar, '.');
@@ -510,7 +510,7 @@ namespace CSharpLua {
       return forcePublicSymbols_.Contains(symbol.OriginalDefinition);
     }
 
-    private static readonly HashSet<string> ignoreSystemAttributes_ = new HashSet<string>() {
+    private static readonly HashSet<string> ignoreSystemAttributes_ = new() {
       "System.AttributeUsageAttribute",
       "System.ComponentModel.BrowsableAttribute",
       "System.Diagnostics.ConditionalAttribute",
@@ -521,7 +521,7 @@ namespace CSharpLua {
       string name = symbol.ToString();
       bool isExport = false;
       if (Setting.IsExportAttributesAll) {
-        isExport = true; ;
+        isExport = true;
       } else if (Setting.ExportAttributes != null && Setting.ExportAttributes.Contains(name)) {
         isExport = true;
       }
@@ -545,10 +545,10 @@ namespace CSharpLua {
     }
 
     internal bool IsConditionalAttributeIgnore(ISymbol symbol) {
-      foreach (var attrbute in symbol.GetAttributes()) {
-        var attributeSymbol = attrbute.AttributeClass;
+      foreach (var attribute in symbol.GetAttributes()) {
+        var attributeSymbol = attribute.AttributeClass;
         if (attributeSymbol.IsConditionalAttribute()) {
-          string conditionString = (string)attrbute.ConstructorArguments.First().Value;
+          string conditionString = (string)attribute.ConstructorArguments.First().Value;
           return !CommandLineArguments.ParseOptions.PreprocessorSymbolNames.Contains(conditionString);
         }
       }
@@ -580,8 +580,8 @@ namespace CSharpLua {
         partialTypes_.Clear();
         foreach (var typeDeclarations in types) {
           var major = typeDeclarations.Min();
-          var transfor = new LuaSyntaxNodeTransform(this, null);
-          transfor.AcceptPartialType(major, typeDeclarations);
+          var transform = new LuaSyntaxNodeTransform(this, null);
+          transform.AcceptPartialType(major, typeDeclarations);
         }
       }
     }
@@ -609,7 +609,7 @@ namespace CSharpLua {
       return isExport;
     }
 
-    private void AddSuperTypeTo(HashSet<INamedTypeSymbol> parentTypes, INamedTypeSymbol rootType, INamedTypeSymbol superType) {
+    private static void AddSuperTypeTo(HashSet<INamedTypeSymbol> parentTypes, INamedTypeSymbol rootType, INamedTypeSymbol superType) {
       if (superType.IsGenericType) {
         if (superType.OriginalDefinition.IsFromCode()) {
           parentTypes.Add(superType.OriginalDefinition);
@@ -756,8 +756,8 @@ namespace CSharpLua {
     }
 
     internal bool AddGenericImportDepend(INamedTypeSymbol definition, INamedTypeSymbol type) {
-      if (type != null && type.IsFromCode() && !definition.IsContainsInternalSymbol(type)) {
-        var set = genericImportDepends_.GetOrAdd(definition, i => new ConcurrentHashSet<INamedTypeSymbol>());
+      if (type != null && type.IsFromCode() && !definition.IsContainsInternalSymbol(type) && !type.IsDependExists(definition)) {
+        var set = genericImportDepends_.GetOrAdd(definition, _ => new ConcurrentHashSet<INamedTypeSymbol>());
         return set.Add(type);
       }
       return false;
@@ -765,14 +765,14 @@ namespace CSharpLua {
 
     #region     // member name refactor
 
-    private readonly List<INamedTypeSymbol> types_ = new List<INamedTypeSymbol>();
-    private readonly Dictionary<INamedTypeSymbol, HashSet<INamedTypeSymbol>> extends_ = new Dictionary<INamedTypeSymbol, HashSet<INamedTypeSymbol>>();
-    private readonly Dictionary<INamedTypeSymbol, HashSet<INamedTypeSymbol>> implicitExtends_ = new Dictionary<INamedTypeSymbol, HashSet<INamedTypeSymbol>>();
+    private readonly List<INamedTypeSymbol> types_ = new();
+    private readonly Dictionary<INamedTypeSymbol, HashSet<INamedTypeSymbol>> extends_ = new();
+    private readonly Dictionary<INamedTypeSymbol, HashSet<INamedTypeSymbol>> implicitExtends_ = new();
 
-    private readonly Dictionary<ISymbol, LuaSymbolNameSyntax> memberNames_ = new Dictionary<ISymbol, LuaSymbolNameSyntax>();
-    private readonly Dictionary<INamedTypeSymbol, HashSet<string>> typeNameUseds_ = new Dictionary<INamedTypeSymbol, HashSet<string>>();
-    private readonly HashSet<ISymbol> refactorNames_ = new HashSet<ISymbol>();
-    private readonly Dictionary<ISymbol, string> memberIllegalNames_ = new Dictionary<ISymbol, string>();
+    private readonly Dictionary<ISymbol, LuaSymbolNameSyntax> memberNames_ = new();
+    private readonly Dictionary<INamedTypeSymbol, HashSet<string>> typeUsedNames_ = new();
+    private readonly HashSet<ISymbol> refactorNames_ = new();
+    private readonly Dictionary<ISymbol, string> memberIllegalNames_ = new();
 
     internal bool IsNeedRefactorName(ISymbol symbol) => refactorNames_.Contains(symbol);
     private bool IsImplicitExtend(INamedTypeSymbol super, INamedTypeSymbol children) => implicitExtends_.GetOrDefault(super)?.Contains(children) ?? false;
@@ -934,7 +934,7 @@ namespace CSharpLua {
     internal LuaIdentifierNameSyntax AddInnerName(ISymbol symbol) {
       string name = GetSymbolBaseName(symbol);
       LuaSymbolNameSyntax symbolName = new LuaSymbolNameSyntax(name);
-      bool success = propertyOrEvnetInnerFieldNames_.TryAdd(symbol, symbolName);
+      bool success = propertyOrEventInnerFieldNames_.TryAdd(symbol, symbolName);
       Contract.Assert(success);
       return symbolName;
     }
@@ -1017,7 +1017,7 @@ namespace CSharpLua {
     }
 
     private bool TryAddNewUsedName(INamedTypeSymbol type, string newName) {
-      return typeNameUseds_.TryAdd(type, newName);
+      return typeUsedNames_.TryAdd(type, newName);
     }
 
     internal string GetUniqueNameInType(INamedTypeSymbol type, string name, Func<string, bool> checker) {
@@ -1065,7 +1065,7 @@ namespace CSharpLua {
 
         if (!isWithoutPrivate || !member.IsPrivate()) {
           var memberNames = GetSymbolNames(member);
-          if (memberNames.Exists(i => names.Contains(i))) {
+          if (memberNames.Exists(names.Contains)) {
             outList.Add(member);
           }
         }
@@ -1225,8 +1225,8 @@ namespace CSharpLua {
 
     private void RefactorCurTypeSymbol(ISymbol symbol, HashSet<ISymbol> alreadyRefactorSymbols) {
       INamedTypeSymbol typeSymbol = symbol.ContainingType;
-      var childrens = extends_.GetOrDefault(typeSymbol);
-      string newName = GetRefactorName(typeSymbol, childrens, symbol);
+      var children = extends_.GetOrDefault(typeSymbol);
+      string newName = GetRefactorName(typeSymbol, children, symbol);
       RefactorName(symbol, newName, alreadyRefactorSymbols);
     }
 
@@ -1234,17 +1234,17 @@ namespace CSharpLua {
       if (symbol.IsFromCode()) {
         INamedTypeSymbol typeSymbol = symbol.ContainingType;
         Contract.Assert(typeSymbol.TypeKind == TypeKind.Interface);
-        var childrens = extends_.GetOrDefault(typeSymbol);
-        string newName = GetRefactorName(null, childrens, symbol);
-        if (childrens != null) {
-          foreach (INamedTypeSymbol children in childrens) {
-            if (children.TypeKind != TypeKind.Interface) {
+        var children = extends_.GetOrDefault(typeSymbol);
+        string newName = GetRefactorName(null, children, symbol);
+        if (children != null) {
+          foreach (INamedTypeSymbol child in children) {
+            if (child.TypeKind != TypeKind.Interface) {
               ISymbol implementationSymbol;
-              if (!IsImplicitExtend(typeSymbol, children)) {
-                implementationSymbol = children.FindImplementationForInterfaceMember(symbol);
+              if (!IsImplicitExtend(typeSymbol, child)) {
+                implementationSymbol = child.FindImplementationForInterfaceMember(symbol);
                 Contract.Assert(implementationSymbol != null);
               } else {
-                implementationSymbol = FindImplicitImplementationForInterfaceMember(children, symbol);
+                implementationSymbol = FindImplicitImplementationForInterfaceMember(child, symbol);
               }
               if (implementationSymbol != null) {
                 RefactorName(implementationSymbol, newName, alreadyRefactorSymbols);
@@ -1263,21 +1263,21 @@ namespace CSharpLua {
     private void RefactorName(ISymbol symbol, string newName, HashSet<ISymbol> alreadyRefactorSymbols) {
       if (!alreadyRefactorSymbols.Contains(symbol)) {
         if (symbol.IsOverridable()) {
-          RefactorChildrensOverridden(symbol, symbol.ContainingType, newName, alreadyRefactorSymbols);
+          RefactorChildrenOverridden(symbol, symbol.ContainingType, newName, alreadyRefactorSymbols);
         }
         UpdateName(symbol, newName, alreadyRefactorSymbols);
       }
     }
 
-    private void RefactorChildrensOverridden(ISymbol originalSymbol, INamedTypeSymbol curType, string newName, HashSet<ISymbol> alreadyRefactorSymbols) {
-      var childrens = extends_.GetOrDefault(curType);
-      if (childrens != null) {
-        foreach (INamedTypeSymbol children in childrens) {
-          var curSymbol = children.GetMembers(originalSymbol.Name).FirstOrDefault(i => i.IsOverridden(originalSymbol));
+    private void RefactorChildrenOverridden(ISymbol originalSymbol, INamedTypeSymbol curType, string newName, HashSet<ISymbol> alreadyRefactorSymbols) {
+      var children = extends_.GetOrDefault(curType);
+      if (children != null) {
+        foreach (INamedTypeSymbol child in children) {
+          var curSymbol = child.GetMembers(originalSymbol.Name).FirstOrDefault(i => i.IsOverridden(originalSymbol));
           if (curSymbol != null) {
             UpdateName(curSymbol, newName, alreadyRefactorSymbols);
           }
-          RefactorChildrensOverridden(originalSymbol, children, newName, alreadyRefactorSymbols);
+          RefactorChildrenOverridden(originalSymbol, child, newName, alreadyRefactorSymbols);
         }
       }
     }
@@ -1311,8 +1311,8 @@ namespace CSharpLua {
           checkName2 = LuaSyntaxNode.Tokens.Set + newName;
         }
       } else if (symbol.Kind == SymbolKind.Event) {
-        var evnetSymbol = (IEventSymbol)symbol;
-        bool isField = IsEventFiled(evnetSymbol);
+        var eventSymbol = (IEventSymbol)symbol;
+        bool isField = IsEventFiled(eventSymbol);
         if (!isField) {
           checkName1 = LuaSyntaxNode.Tokens.Add + newName;
           checkName2 = LuaSyntaxNode.Tokens.Remove + newName;
@@ -1320,7 +1320,7 @@ namespace CSharpLua {
       }
     }
 
-    private string GetRefactorName(INamedTypeSymbol typeSymbol, IEnumerable<INamedTypeSymbol> childrens, ISymbol symbol) {
+    private string GetRefactorName(INamedTypeSymbol typeSymbol, ICollection<INamedTypeSymbol> children, ISymbol symbol) {
       bool isPrivate = symbol.IsPrivate();
       int index = 0;
       string originalName = memberIllegalNames_.GetOrDefault(symbol);
@@ -1337,8 +1337,8 @@ namespace CSharpLua {
         if (typeSymbol != null) {
           isEnable = IsNewNameEnable(typeSymbol, checkName1, checkName2, isPrivate);
         } else {
-          if (!isPrivate && childrens != null) {
-            isEnable = childrens.All(i => IsNewNameEnable(i, checkName1, checkName2, isPrivate));
+          if (!isPrivate && children != null) {
+            isEnable = children.All(i => IsNewNameEnable(i, checkName1, checkName2, false));
           }
         }
         if (isEnable) {
@@ -1349,7 +1349,7 @@ namespace CSharpLua {
     }
 
     private bool IsTypeNameUsed(INamedTypeSymbol typeSymbol, string newName) {
-      return typeNameUseds_.Contains(typeSymbol, newName);
+      return typeUsedNames_.Contains(typeSymbol, newName);
     }
 
     private bool IsNewNameEnable(INamedTypeSymbol typeSymbol, string checkName1, string checkName2, bool isPrivate) {
@@ -1363,7 +1363,7 @@ namespace CSharpLua {
     }
 
     private bool IsNewNameEnable(INamedTypeSymbol typeSymbol, string newName, bool isPrivate) {
-      bool isEnable = IsNameEnableOfCurAndChildrens(typeSymbol, newName, isPrivate);
+      bool isEnable = IsNameEnableOfCurAndChildren(typeSymbol, newName, isPrivate);
       if (isEnable) {
         if (!isPrivate) {
           var p = typeSymbol.BaseType;
@@ -1383,20 +1383,20 @@ namespace CSharpLua {
       return !IsTypeNameUsed(typeSymbol, newName) && typeSymbol.GetMembers(newName).IsEmpty;
     }
 
-    private bool IsNameEnableOfCurAndChildrens(INamedTypeSymbol typeSymbol, string newName, bool isPrivate) {
+    private bool IsNameEnableOfCurAndChildren(INamedTypeSymbol typeSymbol, string newName, bool isPrivate) {
       if (!IsCurTypeNameEnable(typeSymbol, newName)) {
         return false;
       }
 
       if (!isPrivate) {
-        return IsInnerNameEnableOfChildrens(typeSymbol, newName, isPrivate);
+        return IsInnerNameEnableOfChildren(typeSymbol, newName, false);
       }
 
       return true;
     }
 
     private void CheckRefactorInnerNames() {
-      foreach (var innerName in propertyOrEvnetInnerFieldNames_) {
+      foreach (var innerName in propertyOrEventInnerFieldNames_) {
         var symbol = innerName.Key;
         string newName = GetInnerGetRefactorName(symbol);
         innerName.Value.Update(newName);
@@ -1420,7 +1420,7 @@ namespace CSharpLua {
     }
 
     private bool IsInnerNameEnable(INamedTypeSymbol typeSymbol, string newName, bool isPrivate) {
-      bool isEnable = IsInnerNameEnableOfChildrens(typeSymbol, newName, isPrivate);
+      bool isEnable = IsInnerNameEnableOfChildren(typeSymbol, newName, isPrivate);
       if (isEnable) {
         if (!isPrivate) {
           var p = typeSymbol.BaseType;
@@ -1436,11 +1436,11 @@ namespace CSharpLua {
       return false;
     }
 
-    private bool IsInnerNameEnableOfChildrens(INamedTypeSymbol typeSymbol, string newName, bool isPrivate) {
-      var childrens = extends_.GetOrDefault(typeSymbol);
-      if (childrens != null) {
-        foreach (INamedTypeSymbol children in childrens) {
-          if (!IsNameEnableOfCurAndChildrens(children, newName, isPrivate)) {
+    private bool IsInnerNameEnableOfChildren(INamedTypeSymbol typeSymbol, string newName, bool isPrivate) {
+      var children = extends_.GetOrDefault(typeSymbol);
+      if (children != null) {
+        foreach (INamedTypeSymbol child in children) {
+          if (!IsNameEnableOfCurAndChildren(child, newName, isPrivate)) {
             return false;
           }
         }
@@ -1460,15 +1460,15 @@ namespace CSharpLua {
     private readonly Dictionary<INamedTypeSymbol, Dictionary<ISymbol, ISymbol>> implicitInterfaceTypes_ = new();
     private readonly HashSet<INamedTypeSymbol> typesOfExtendSelf_ = new();
 
-    private readonly ConcurrentDictionary<IPropertySymbol, bool> isFieldPropertys_ = new();
+    private readonly ConcurrentDictionary<IPropertySymbol, bool> isFieldProperties_ = new();
     private readonly ConcurrentDictionary<IEventSymbol, bool> isFieldEvents_ = new();
     private readonly ConcurrentDictionary<ISymbol, bool> isMoreThanLocalVariables_ = new();
-    private readonly ConcurrentDictionary<ISymbol, LuaSymbolNameSyntax> propertyOrEvnetInnerFieldNames_ = new();
-    private readonly ConcurrentHashSet<ISymbol> inlineSymbols_ = new ConcurrentHashSet<ISymbol>();
+    private readonly ConcurrentDictionary<ISymbol, LuaSymbolNameSyntax> propertyOrEventInnerFieldNames_ = new();
+    private readonly ConcurrentHashSet<ISymbol> inlineSymbols_ = new();
 
     private sealed class PretreatmentChecker : CSharpSyntaxWalker {
       private readonly LuaSyntaxGenerator generator_;
-      private readonly HashSet<INamedTypeSymbol> classTypes_ = new HashSet<INamedTypeSymbol>();
+      private readonly HashSet<INamedTypeSymbol> classTypes_ = new();
 
       public PretreatmentChecker(LuaSyntaxGenerator generator) {
         generator_ = generator;
@@ -1479,8 +1479,8 @@ namespace CSharpLua {
       }
 
       private INamedTypeSymbol GetDeclaredSymbol(BaseTypeDeclarationSyntax node) {
-        var semanticModel_ = generator_.compilation_.GetSemanticModel(node.SyntaxTree);
-        return semanticModel_.GetDeclaredSymbol(node);
+        var semanticModel = generator_.compilation_.GetSemanticModel(node.SyntaxTree);
+        return semanticModel.GetDeclaredSymbol(node);
       }
 
       public override void VisitClassDeclaration(ClassDeclarationSyntax node) {
@@ -1527,6 +1527,7 @@ namespace CSharpLua {
           foreach (var baseInterface in type.AllInterfaces) {
             foreach (var interfaceMember in baseInterface.GetMembers().Where(i => !i.IsStatic)) {
               var implementationMember = type.FindImplementationForInterfaceMember(interfaceMember);
+              Contract.Assert(implementationMember != null);
               if (implementationMember.Kind == SymbolKind.Method) {
                 var methodSymbol = (IMethodSymbol)implementationMember;
                 if (methodSymbol.MethodKind != MethodKind.Ordinary) {
@@ -1550,7 +1551,7 @@ namespace CSharpLua {
         }
       }
 
-      private bool IsExtendSelf(INamedTypeSymbol typeSymbol) {
+      private static bool IsExtendSelf(INamedTypeSymbol typeSymbol) {
         if (typeSymbol.BaseType != null) {
           if (Utility.IsExtendSelf(typeSymbol, typeSymbol.BaseType)) {
             return true;
@@ -1591,7 +1592,7 @@ namespace CSharpLua {
         generator_.typeRefactorNames_.Add(type, newName);
       }
 
-      private string GetTypeOrNamespaceNewName(IEnumerable<ISymbol> allSymbols, ISymbol symbol, string name, int index = 0) {
+      private static string GetTypeOrNamespaceNewName(IEnumerable<ISymbol> allSymbols, ISymbol symbol, string name, int index = 0) {
         while (true) {
           string newName = Utility.GetNewIdentifierName(name, index);
           if (!CheckTypeNameExists(allSymbols, symbol, newName)) {
@@ -1625,32 +1626,32 @@ namespace CSharpLua {
     }
 
     private void DoPretreatment() {
-      new PretreatmentChecker(this);
+      _ = new PretreatmentChecker(this);
     }
 
     private void AddImplicitInterfaceImplementation(ISymbol implementationMember, ISymbol interfaceMember) {
       bool success = implicitInterfaceImplementations_.TryAdd(implementationMember, interfaceMember);
       if (success) {
         var containingType = implementationMember.ContainingType;
-        var mapps = implicitInterfaceTypes_.GetOrDefault(containingType);
-        if (mapps == null) {
-          mapps = new Dictionary<ISymbol, ISymbol>();
-          implicitInterfaceTypes_.Add(containingType, mapps);
+        var map = implicitInterfaceTypes_.GetOrDefault(containingType);
+        if (map == null) {
+          map = new Dictionary<ISymbol, ISymbol>();
+          implicitInterfaceTypes_.Add(containingType, map);
         }
-        mapps.Add(interfaceMember, implementationMember);
+        map.Add(interfaceMember, implementationMember);
       }
     }
 
     private ISymbol FindImplicitImplementationForInterfaceMember(INamedTypeSymbol typeSymbol, ISymbol interfaceMember) {
-      var mapps = implicitInterfaceTypes_.GetOrDefault(typeSymbol);
-      return mapps?.GetOrDefault(interfaceMember);
+      var map = implicitInterfaceTypes_.GetOrDefault(typeSymbol);
+      return map?.GetOrDefault(interfaceMember);
     }
 
     private bool IsImplicitInterfaceImplementation(ISymbol symbol) {
       return implicitInterfaceImplementations_.ContainsKey(symbol);
     }
 
-    private bool IsModuleAutoField(ISymbol symbol) {
+    private static bool IsModuleAutoField(ISymbol symbol) {
       var method = symbol.Kind == SymbolKind.Property ? ((IPropertySymbol)symbol).GetMethod : ((IEventSymbol)symbol).AddMethod;
       return method != null && method.GetAttributes().HasCompilerGeneratedAttribute();
     }
@@ -1666,10 +1667,6 @@ namespace CSharpLua {
 
       if (symbol.IsFromAssembly()) {
         return false;
-      }
-
-      if (symbol.IsProtobufNetSpecialProperty()) {
-        return true;
       }
 
       var node = symbol.GetDeclaringSyntaxNode();
@@ -1721,7 +1718,7 @@ namespace CSharpLua {
     }
 
     internal bool IsPropertyField(IPropertySymbol symbol) {
-      return isFieldPropertys_.GetOrAdd(symbol, symbol => {
+      return isFieldProperties_.GetOrAdd(symbol, symbol => {
         bool isField;
         bool? isMateField = XmlMetaProvider.IsPropertyField(symbol);
         if (isMateField.HasValue) {
@@ -1877,7 +1874,7 @@ namespace CSharpLua {
 
     internal bool IsExtendExists(INamedTypeSymbol typeSymbol) {
       var set = extends_.GetOrDefault(typeSymbol);
-      return set != null && set.Count > 0;
+      return set?.Count > 0;
     }
 
     internal bool IsSealed(INamedTypeSymbol typeSymbol) {
@@ -1949,8 +1946,8 @@ namespace CSharpLua {
       return false;
     }
 
-    private bool IsInitFieldExists(INamedTypeSymbol symbol, bool isStatic) {
-      var members = symbol.GetMembers().Where(i => i.IsStatic == isStatic);
+    private static bool IsInitFieldExists(INamedTypeSymbol symbol, bool isStatic) {
+      var members = symbol.GetMembers().Where(i => i.IsStatic == isStatic).ToArray();
       var fields = members.OfType<IFieldSymbol>();
       if (IsInitFieldExists(fields, i => i.Type, node => ((VariableDeclaratorSyntax)node).Initializer?.Value)) {
         return true;
@@ -1985,33 +1982,29 @@ namespace CSharpLua {
       return name;
     }
 
-    internal LuaExpressionSyntax GetTypeName(ISymbol symbol, LuaSyntaxNodeTransform transfor = null) {
+    internal LuaExpressionSyntax GetTypeName(ISymbol symbol, LuaSyntaxNodeTransform transform = null) {
       switch (symbol.Kind) {
         case SymbolKind.TypeParameter: {
           return symbol.Name;
         }
         case SymbolKind.ArrayType: {
           var arrayType = (IArrayTypeSymbol)symbol;
-          transfor?.AddGenericTypeCounter();
-          var elementType = GetTypeName(arrayType.ElementType, transfor);
-          transfor?.SubGenericTypeCounter();
+          transform?.AddGenericTypeCounter();
+          var elementType = GetTypeName(arrayType.ElementType, transform);
+          transform?.SubGenericTypeCounter();
           var invocation = new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.Array, elementType);
           if (arrayType.Rank > 1) {
             invocation.AddArgument(arrayType.Rank.ToString());
           }
           LuaExpressionSyntax luaExpression = invocation;
-          if (transfor != null) {
-            transfor.ImportGenericTypeName(ref luaExpression, arrayType);
-          }
+          transform?.ImportGenericTypeName(ref luaExpression, arrayType);
           return luaExpression;
         }
         case SymbolKind.PointerType: {
           var pointType = (IPointerTypeSymbol)symbol;
-          var elementTypeExpression = GetTypeName(pointType.PointedAtType, transfor);
+          var elementTypeExpression = GetTypeName(pointType.PointedAtType, transform);
           LuaExpressionSyntax luaExpression = new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.Array, elementTypeExpression);
-          if (transfor != null) {
-            transfor.ImportGenericTypeName(ref luaExpression, pointType);
-          }
+          transform?.ImportGenericTypeName(ref luaExpression, pointType);
           return luaExpression;
         }
         case SymbolKind.DynamicType: {
@@ -2021,19 +2014,17 @@ namespace CSharpLua {
 
       var namedTypeSymbol = (INamedTypeSymbol)symbol;
       if (IsConstantEnum(namedTypeSymbol)) {
-        return GetTypeName(namedTypeSymbol.EnumUnderlyingType, transfor);
+        return GetTypeName(namedTypeSymbol.EnumUnderlyingType, transform);
       }
 
       if (namedTypeSymbol.IsDelegateType()) {
-        if (transfor != null && transfor.IsMetadataTypeName) {
+        if (transform?.IsMetadataTypeName == true) {
           var delegateMethod = namedTypeSymbol.DelegateInvokeMethod;
+          Contract.Assert(delegateMethod != null);
           if (!delegateMethod.Parameters.IsEmpty || !delegateMethod.ReturnsVoid) {
-            var arguments = delegateMethod.Parameters.Select(i => GetTypeName(i.Type, transfor)).ToList();
-            if (delegateMethod.ReturnsVoid) {
-              arguments.Add(LuaIdentifierNameSyntax.SystemVoid);
-            } else {
-              arguments.Add(GetTypeName(delegateMethod.ReturnType, transfor));
-            }
+            var arguments = delegateMethod.Parameters.Select(i => GetTypeName(i.Type, transform)).ToList();
+            var argument = delegateMethod.ReturnsVoid ? LuaIdentifierNameSyntax.SystemVoid : GetTypeName(delegateMethod.ReturnType, transform);
+            arguments.Add(argument);
             return new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.Delegate, arguments); ;
           }
         }
@@ -2052,15 +2043,15 @@ namespace CSharpLua {
         return LuaIdentifierNameSyntax.Tuple;
       }
 
-      if (transfor != null && transfor.IsNoneGenericTypeCounter) {
-        var curTypeDeclaration = transfor.CurTypeDeclaration;
+      if (transform?.IsNoneGenericTypeCounter == true) {
+        var curTypeDeclaration = transform.CurTypeDeclaration;
         if (curTypeDeclaration != null && curTypeDeclaration.CheckTypeName(namedTypeSymbol, out var classIdentifier)) {
           return classIdentifier;
         }
       }
 
-      var typeName = GetTypeShortName(namedTypeSymbol, transfor);
-      var typeArguments = GetTypeArguments(namedTypeSymbol, transfor);
+      var typeName = GetTypeShortName(namedTypeSymbol, transform);
+      var typeArguments = GetTypeArguments(namedTypeSymbol, transform);
       if (typeArguments.Count == 0) {
         return typeName;
       } else if (XmlMetaProvider.IsTypeIgnoreGeneric(namedTypeSymbol)) {
@@ -2075,39 +2066,37 @@ namespace CSharpLua {
         var invocationExpression = new LuaInvocationExpressionSyntax(typeName);
         invocationExpression.AddArguments(typeArguments);
         LuaExpressionSyntax luaExpression = invocationExpression;
-        if (transfor != null) {
-          transfor.ImportGenericTypeName(ref luaExpression, namedTypeSymbol);
-        }
+        transform?.ImportGenericTypeName(ref luaExpression, namedTypeSymbol);
         return luaExpression;
       }
     }
 
-    private List<LuaExpressionSyntax> GetTypeArguments(INamedTypeSymbol typeSymbol, LuaSyntaxNodeTransform transfor) {
+    private List<LuaExpressionSyntax> GetTypeArguments(INamedTypeSymbol typeSymbol, LuaSyntaxNodeTransform transform) {
       List<LuaExpressionSyntax> typeArguments = new List<LuaExpressionSyntax>();
-      FillExternalTypeArgument(typeArguments, typeSymbol, transfor);
-      FillTypeArguments(typeArguments, typeSymbol, transfor);
+      FillExternalTypeArgument(typeArguments, typeSymbol, transform);
+      FillTypeArguments(typeArguments, typeSymbol, transform);
       return typeArguments;
     }
 
-    private void FillExternalTypeArgument(List<LuaExpressionSyntax> typeArguments, INamedTypeSymbol typeSymbol, LuaSyntaxNodeTransform transfor) {
+    private void FillExternalTypeArgument(List<LuaExpressionSyntax> typeArguments, INamedTypeSymbol typeSymbol, LuaSyntaxNodeTransform transform) {
       var externalType = typeSymbol.ContainingType;
       if (externalType != null) {
-        FillExternalTypeArgument(typeArguments, externalType, transfor);
-        FillTypeArguments(typeArguments, externalType, transfor);
+        FillExternalTypeArgument(typeArguments, externalType, transform);
+        FillTypeArguments(typeArguments, externalType, transform);
       }
     }
 
-    private void FillTypeArguments(List<LuaExpressionSyntax> typeArguments, INamedTypeSymbol typeSymbol, LuaSyntaxNodeTransform transfor) {
+    private void FillTypeArguments(List<LuaExpressionSyntax> typeArguments, INamedTypeSymbol typeSymbol, LuaSyntaxNodeTransform transform) {
       if (typeSymbol.TypeArguments.Length > 0) {
-        transfor?.AddGenericTypeCounter();
+        transform?.AddGenericTypeCounter();
         foreach (var typeArgument in typeSymbol.TypeArguments) {
           if (typeArgument.Kind == SymbolKind.ErrorType) {
             break;
           }
-          var typeArgumentExpression = GetTypeName(typeArgument, transfor);
+          var typeArgumentExpression = GetTypeName(typeArgument, transform);
           typeArguments.Add(typeArgumentExpression);
         }
-        transfor?.SubGenericTypeCounter();
+        transform?.SubGenericTypeCounter();
       }
     }
 
@@ -2144,20 +2133,20 @@ namespace CSharpLua {
       throw new InvalidOperationException();
     }
 
-    internal LuaIdentifierNameSyntax GetTypeShortName(ISymbol symbol, LuaSyntaxNodeTransform transfor = null) {
+    internal LuaIdentifierNameSyntax GetTypeShortName(ISymbol symbol, LuaSyntaxNodeTransform transform = null) {
       var typeSymbol = (INamedTypeSymbol)symbol.OriginalDefinition;
-      string name = typeSymbol.GetTypeShortName(GetNamespaceMapName, GetTypeRefactorName, transfor);
+      string name = typeSymbol.GetTypeShortName(GetNamespaceMapName, GetTypeRefactorName, transform);
       string newName = XmlMetaProvider.GetTypeMapName(typeSymbol, name);
       if (newName != null) {
         name = newName;
       }
-      if (transfor != null) {
-        if (transfor.IsNoImportTypeName) {
+      if (transform != null) {
+        if (transform.IsNoImportTypeName) {
           if (!name.StartsWith(LuaIdentifierNameSyntax.System.ValueText) && !name.StartsWith(LuaIdentifierNameSyntax.Class.ValueText)) {
             name = LuaIdentifierNameSyntax.Global.ValueText + '.' + name;
           }
         } else {
-          transfor.ImportTypeName(ref name, (INamedTypeSymbol)symbol);
+          transform.ImportTypeName(ref name, (INamedTypeSymbol)symbol);
         }
       }
       return name;
