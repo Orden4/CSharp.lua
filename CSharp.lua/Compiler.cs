@@ -78,7 +78,7 @@ namespace CSharpLua {
 
     internal static List<string> GetSystemLibs() {
       string privateCorePath = typeof(object).Assembly.Location;
-      List<string> libs = new List<string>() { privateCorePath };
+      List<string> libs = new List<string> { privateCorePath };
 
       string systemDir = Path.GetDirectoryName(privateCorePath);
       foreach (string path in Directory.EnumerateFiles(systemDir, "*.dll")) {
@@ -103,7 +103,7 @@ namespace CSharpLua {
       List<string> luaSystemLibs = new();
       var lines = File.ReadAllLines(allFilePath);
       foreach (string line in lines) {
-        int i = line.IndexOf(kBeginMark);
+        int i = line.IndexOf(kBeginMark, StringComparison.Ordinal);
         if (i != -1) {
           int begin = i + kBeginMark.Length;
           int end = line.IndexOf('"', begin);
@@ -121,7 +121,7 @@ namespace CSharpLua {
     }
 
     private LuaSyntaxGenerator.SettingInfo GetGeneratorSettingInfo() {
-      return new LuaSyntaxGenerator.SettingInfo() {
+      return new LuaSyntaxGenerator.SettingInfo {
         IsClassic = Settings.isClassic_,
         IsExportMetadata = IsExportMetadata,
         Attributes = Settings.attributes_,

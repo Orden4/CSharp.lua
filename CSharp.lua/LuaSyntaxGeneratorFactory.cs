@@ -177,7 +177,7 @@ namespace CSharpLua {
       if (Directory.Exists(folder)) {
         return Directory.EnumerateFiles(folder, "*.cs", SearchOption.AllDirectories);
       }
-      return Utility.Split(folder, true);
+      return Utility.Split(folder);
     }
 
     private static IEnumerable<string> GetProjectsSourceFiles(IEnumerable<(string folder, CustomProjectParserResult project)> projects) {
