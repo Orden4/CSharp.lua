@@ -7,16 +7,17 @@ using System.Collections.Generic;
 using System.Linq;
 using Bridge.Test.NUnit;
 
+#if true
 namespace Bridge.ClientTest.Collections.Generic
 {
     [Category(Constants.MODULE_ACTIVATOR)]
-    [TestFixture(TestNameFormat = "SortedList_Generic_Tests_string_string - {0}")]
-    public class SortedList_Generic_Tests_string_string : SortedList_Generic_Tests<string, string>
+    [TestFixture(TestNameFormat = "SortedDictionaryGenericTestsStringString - {0}")]
+    public class SortedDictionaryGenericTestsStringString : SortedDictionary_Generic_Tests<string, string>
     {
 #region Constructor_IComparer
 
         [Test]
-        public void SortedList_Generic_Constructor_IComparer()
+        public void SortedDictionary_Generic_Constructor_IComparer()
         {
             var data = ValidCollectionSizes();
 
@@ -26,7 +27,7 @@ namespace Bridge.ClientTest.Collections.Generic
 
                 IComparer<string> comparer = GetKeyIComparer();
                 IDictionary<string, string> source = GenericIDictionaryFactory(count);
-                SortedList<string, string> copied = new SortedList<string, string>(source, comparer);
+                SortedDictionary<string, string> copied = new SortedDictionary<string, string>(source, comparer);
                 Assert.AreDeepEqual(source.ToArray(), copied.ToArray());
                 Assert.True(Object.ReferenceEquals(comparer, copied.Comparer));
             }
@@ -37,7 +38,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region Constructor_IDictionary
 
         [Test]
-        public void SortedList_Generic_Constructor_IDictionary()
+        public void SortedDictionary_Generic_Constructor_IDictionary()
         {
             var data = ValidCollectionSizes();
 
@@ -46,14 +47,14 @@ namespace Bridge.ClientTest.Collections.Generic
                 int count = (int)testCase[0];
 
                 IDictionary<string, string> source = GenericIDictionaryFactory(count);
-                IDictionary<string, string> copied = new SortedList<string, string>(source);
+                IDictionary<string, string> copied = new SortedDictionary<string, string>(source);
                 Assert.AreDeepEqual(source.ToArray(), copied.ToArray());
             }
 
         }
 
         [Test]
-        public void SortedList_Generic_Constructor_NullIDictionary_ThrowsArgumentNullException()
+        public void SortedDictionary_Generic_Constructor_NullIDictionary_ThrowsArgumentNullException()
         {
             var data = ValidCollectionSizes();
 
@@ -61,7 +62,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                Assert.Throws<ArgumentNullException>(() => new SortedList<string, string>((IDictionary<string, string>)null));
+                Assert.Throws<ArgumentNullException>(() => new SortedDictionary<string, string>((IDictionary<string, string>)null));
             }
 
         }
@@ -71,7 +72,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region Constructor_IDictionary_IComparer
 
         [Test]
-        public void SortedList_Generic_Constructor_IDictionary_IComparer()
+        public void SortedDictionary_Generic_Constructor_IDictionary_IComparer()
         {
             var data = ValidCollectionSizes();
 
@@ -81,7 +82,7 @@ namespace Bridge.ClientTest.Collections.Generic
 
                 IComparer<string> comparer = GetKeyIComparer();
                 IDictionary<string, string> source = GenericIDictionaryFactory(count);
-                SortedList<string, string> copied = new SortedList<string, string>(source, comparer);
+                SortedDictionary<string, string> copied = new SortedDictionary<string, string>(source, comparer);
                 Assert.AreDeepEqual(source.ToArray(), copied.ToArray());
                 Assert.True(Object.ReferenceEquals(comparer, copied.Comparer));
             }
@@ -94,33 +95,16 @@ namespace Bridge.ClientTest.Collections.Generic
 #region Constructor_int
 
         [Test]
-        public void SortedList_Generic_Constructor_int()
+        public void SortedDictionary_Generic_Constructor_int()
         {
             var data = ValidCollectionSizes();
 
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-
-                SortedList<string, string> dictionary = new SortedList<string, string>(count);
+                SortedDictionary<string, string> dictionary = new SortedDictionary<string, string>();
                 Assert.AreEqual(0, dictionary.Count);
             }
-        }
-
-        [Test]
-        public void SortedList_Generic_Constructor_NegativeCapacity_ThrowsArgumentOutOfRangeException()
-        {
-            var data = ValidCollectionSizes();
-
-            foreach (var testCase in data)
-            {
-                int count = (int)testCase[0];
-
-                Assert.Throws<ArgumentOutOfRangeException>(() => new SortedList<string, string>(-1));
-                Assert.Throws<ArgumentOutOfRangeException>(() => new SortedList<string, string>(int.MinValue));
-            }
-
-
         }
 
 #endregion
@@ -128,7 +112,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region Constructor_int_IComparer
 
         [Test]
-        public void SortedList_Generic_Constructor_int_IComparer()
+        public void SortedDictionary_Generic_Constructor_int_IComparer()
         {
             var data = ValidCollectionSizes();
 
@@ -137,7 +121,7 @@ namespace Bridge.ClientTest.Collections.Generic
                 int count = (int)testCase[0];
 
                 IComparer<string> comparer = GetKeyIComparer();
-                SortedList<string, string> dictionary = new SortedList<string, string>(count, comparer);
+                SortedDictionary<string, string> dictionary = new SortedDictionary<string, string>(comparer);
                 Assert.AreEqual(0, dictionary.Count);
                 Assert.True(Object.ReferenceEquals(comparer, dictionary.Comparer));
             }
@@ -149,7 +133,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region Capacity
 
         [Test]
-        public void SortedList_Generic_Capacity_setRoundTrips()
+        public void SortedDictionary_Generic_Capacity_setRoundTrips()
         {
             var data = ValidCollectionSizes();
 
@@ -157,34 +141,31 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
-                dictionary.Capacity = count * 2;
-                dictionary.Capacity = count * 2 + 16000;
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
+                Assert.AreEqual(count, dictionary.Count);
             }
 
 
         }
 
         [Test]
-        public void SortedList_Generic_Capacity_NegativeValue_ThrowsArgumentOutOfRangeException()
+        public void SortedDictionary_Generic_Capacity_NegativeValue_ThrowsArgumentOutOfRangeException()
         {
             var data = ValidCollectionSizes();
 
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
-                int capacityBefore = dictionary.Capacity;
-                Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.Capacity = -1);
-                Assert.AreEqual(capacityBefore, dictionary.Capacity);
-
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
+                int capacityBefore = dictionary.Count;
+                Assert.AreEqual(capacityBefore, dictionary.Count);
             }
 
 
         }
 
         [Test]
-        public void SortedList_Generic_Capacity_LessThanCount_ThrowsArgumentOutOfRangeException()
+        public void SortedDictionary_Generic_Capacity_LessThanCount_ThrowsArgumentOutOfRangeException()
         {
             var data = ValidCollectionSizes();
 
@@ -192,25 +173,24 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory();
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory();
                 for (int i = 0; i < count; i++)
                 {
                     AddToCollection(dictionary, 1);
-                    Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.Capacity = i);
+                    Assert.Throws<KeyNotFoundException>(() => dictionary["abc"].ToString());
                 }
             }
 
         }
 
         [Test]
-        public void SortedList_Generic_Capacity_GrowsDuringAdds()
+        public void SortedDictionary_Generic_Capacity_GrowsDuringAdds()
         {
             var data = ValidCollectionSizes();
-
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory();
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory();
                 for (int i = 0; i < count; i++)
                 {
                     AddToCollection(dictionary, 1);
@@ -219,37 +199,31 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_Capacity_ClearDoesntTrim()
+        public void SortedDictionary_Generic_Capacity_ClearDoesntTrim()
         {
             var data = ValidCollectionSizes();
-
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory();
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory();
                 for (int i = 0; i < count; i++)
                 {
                     AddToCollection(dictionary, 1);
                 }
                 dictionary.Clear();
-                if (count == 0)
-                {
-                    Assert.AreEqual(0, dictionary.Capacity);
-                }
             }
-
-
         }
 
         [Test]
-        public void SortedList_Generic_Capacity_ClearTrimsToInitialCapacity()
+        public void SortedDictionary_Generic_Capacity_ClearTrimsToInitialCapacity()
         {
             var data = ValidCollectionSizes();
 
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-                SortedList<string, string> dictionary = new SortedList<string, string>(count);
+
+                SortedDictionary<string, string> dictionary = new SortedDictionary<string, string>();
                 AddToCollection(dictionary, count);
                 dictionary.Clear();
             }
@@ -260,7 +234,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region ContainsValue
 
         [Test]
-        public void SortedList_Generic_ContainsValue_NotPresent()
+        public void SortedDictionary_Generic_ContainsValue_NotPresent()
         {
             var data = ValidCollectionSizes();
 
@@ -268,7 +242,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
                 int seed = 4315;
                 string notPresent = CreateTValue(seed++);
                 while (dictionary.Values.Contains(notPresent))
@@ -280,7 +254,7 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_ContainsValue_Present()
+        public void SortedDictionary_Generic_ContainsValue_Present()
         {
             var data = ValidCollectionSizes();
 
@@ -288,7 +262,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
                 int seed = 4315;
                 KeyValuePair<string, string> notPresent = CreateT(seed++);
                 while (dictionary.Contains(notPresent))
@@ -302,7 +276,7 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_ContainsValue_DefaultValueNotPresent()
+        public void SortedDictionary_Generic_ContainsValue_DefaultValueNotPresent()
         {
             var data = ValidCollectionSizes();
 
@@ -310,13 +284,13 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
                 Assert.False(dictionary.ContainsValue(default(string)));
             }
         }
 
         [Test]
-        public void SortedList_Generic_ContainsValue_DefaultValuePresent()
+        public void SortedDictionary_Generic_ContainsValue_DefaultValuePresent()
         {
             var data = ValidCollectionSizes();
 
@@ -324,7 +298,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
                 int seed = 4315;
                 string notPresent = CreateTKey(seed++);
                 while (dictionary.ContainsKey(notPresent))
@@ -341,7 +315,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region IndexOfKey
 
         [Test]
-        public void SortedList_Generic_IndexOfKey_EachKey()
+        public void SortedDictionary_Generic_IndexOfKey_EachKey()
         {
             var data = ValidCollectionSizes();
 
@@ -351,11 +325,11 @@ namespace Bridge.ClientTest.Collections.Generic
 
 
                 // Assumes no duplicate elements contained in the dictionary returned by GenericIListFactory
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
-                IList<string> keys = dictionary.Keys;
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
+                var keys = dictionary.Keys;
                 Enumerable.Range(0, count).ForEach(index =>
                 {
-                    Assert.AreEqual(index, dictionary.IndexOfKey(keys[index]));
+                    Assert.AreEqual(keys.ElementAt(index), dictionary.ElementAt(index).Key);
                 });
             }
         }
@@ -365,7 +339,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region IndexOfValue
 
         [Test]
-        public void SortedList_Generic_IndexOfValue_DefaultValueNotContainedInList()
+        public void SortedDictionary_Generic_IndexOfValue_DefaultValueNotContainedInList()
         {
             var data = ValidCollectionSizes();
 
@@ -374,18 +348,19 @@ namespace Bridge.ClientTest.Collections.Generic
                 int count = (int)testCase[0];
 
 
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
                 string value = default(string);
                 while (dictionary.ContainsValue(value))
                 {
-                    dictionary.RemoveAt(dictionary.IndexOfValue(value));
+                    string key = dictionary.First(i => i.Value == value).Key;
+                    dictionary.Remove(key);
                 }
-                Assert.AreEqual(-1, dictionary.IndexOfValue(value));
+                Assert.False(dictionary.Values.Any(i => i == value));
             }
         }
 
         [Test]
-        public void SortedList_Generic_IndexOfValue_DefaultValueContainedInList()
+        public void SortedDictionary_Generic_IndexOfValue_DefaultValueContainedInList()
         {
             var data = ValidCollectionSizes();
 
@@ -393,12 +368,12 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
                 string key = GetNewKey(dictionary);
                 string value = default(string);
                 while (dictionary.ContainsValue(value))
                 {
-                    dictionary.RemoveAt(dictionary.IndexOfValue(value));
+                    dictionary.Remove(dictionary.First(i => i.Value == value).Key);
                 }
 
                 List<string> keys = dictionary.Keys.ToList();
@@ -406,12 +381,12 @@ namespace Bridge.ClientTest.Collections.Generic
                 keys.Sort();
                 int expectedIndex = keys.IndexOf(key);
                 dictionary.Add(key, value);
-                Assert.AreEqual(expectedIndex, dictionary.IndexOfValue(value));
+                Assert.AreEqual(expectedIndex, dictionary.Values.ToList().IndexOf(value));
             }
         }
 
         [Test]
-        public void SortedList_Generic_IndexOfValue_ValueInCollectionMultipleTimes()
+        public void SortedDictionary_Generic_IndexOfValue_ValueInCollectionMultipleTimes()
         {
             var data = ValidCollectionSizes();
 
@@ -420,7 +395,7 @@ namespace Bridge.ClientTest.Collections.Generic
                 int count = (int)testCase[0];
 
                 int seed = 53214;
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
                 string key1 = CreateTKey(seed++);
                 string key2 = CreateTKey(seed++);
                 string value = CreateTValue(seed++);
@@ -434,7 +409,8 @@ namespace Bridge.ClientTest.Collections.Generic
                 }
                 while (dictionary.ContainsValue(value))
                 {
-                    dictionary.RemoveAt(dictionary.IndexOfValue(value));
+                    var key = dictionary.First(i => i.Value == value).Key;
+                    dictionary.Remove(key);
                 }
 
                 List<string> keys = dictionary.Keys.ToList();
@@ -445,12 +421,12 @@ namespace Bridge.ClientTest.Collections.Generic
 
                 dictionary.Add(key1, value);
                 dictionary.Add(key2, value);
-                Assert.AreEqual(expectedIndex, dictionary.IndexOfValue(value));
+                Assert.AreEqual(expectedIndex, dictionary.Values.ToList().IndexOf(value));
             }
         }
 
         [Test]
-        public void SortedList_Generic_IndexOfValue_EachValue()
+        public void SortedDictionary_Generic_IndexOfValue_EachValue()
         {
             var data = ValidCollectionSizes();
 
@@ -460,11 +436,12 @@ namespace Bridge.ClientTest.Collections.Generic
 
 
                 // Assumes no duplicate elements contained in the dictionary returned by GenericIListFactory
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
-                IList<string> keys = dictionary.Keys;
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
+                var keys = dictionary.Keys;
                 Enumerable.Range(0, count).ForEach(index =>
                 {
-                    Assert.AreEqual(index, dictionary.IndexOfValue(dictionary[keys[index]]));
+                    var key = keys.ElementAt(index);
+                    Assert.AreEqual(key, dictionary.ElementAt(index).Key);
                 });
             }
         }
@@ -473,13 +450,13 @@ namespace Bridge.ClientTest.Collections.Generic
 
 #region RemoveAt
 
-        private void RemoveAt(SortedList<string, string> dictionary, KeyValuePair<string, string> element)
+        private void RemoveAt(SortedDictionary<string, string> dictionary, KeyValuePair<string, string> element)
         {
-            dictionary.RemoveAt(dictionary.IndexOfKey(element.Key));
+            dictionary.Remove(element.Key);
         }
 
         [Test]
-        public void SortedList_Generic_RemoveAt_NonDefaultValueContainedInCollection()
+        public void SortedDictionary_Generic_RemoveAt_NonDefaultValueContainedInCollection()
         {
             var data = ValidCollectionSizes();
 
@@ -488,7 +465,7 @@ namespace Bridge.ClientTest.Collections.Generic
                 int count = (int)testCase[0];
 
                 int seed = count * 251;
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
                 KeyValuePair<string, string> pair = CreateT(seed++);
                 if (!dictionary.ContainsKey(pair.Key))
                 {
@@ -501,7 +478,7 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_RemoveAt_EveryValue()
+        public void SortedDictionary_Generic_RemoveAt_EveryValue()
         {
             var data = ValidCollectionSizes();
 
@@ -509,7 +486,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
                 dictionary.ToList().ForEach(value =>
                 {
                     RemoveAt(dictionary, value);
@@ -519,18 +496,18 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_RemoveAt_OutOfRangeValues()
+        public void SortedDictionary_Generic_RemoveAt_OutOfRangeValues()
         {
             var data = ValidCollectionSizes();
 
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-                SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(count);
-                Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.RemoveAt(-1));
-                Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.RemoveAt(int.MinValue));
-                Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.RemoveAt(count));
-                Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.RemoveAt(count + 1));
+                SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(count);
+                Assert.Throws<KeyNotFoundException>(() => dictionary.Remove((-1).ToString()));
+                Assert.Throws<KeyNotFoundException>(() => dictionary.Remove(int.MinValue.ToString()));
+                Assert.Throws<KeyNotFoundException>(() => dictionary.Remove(count.ToString()));
+                Assert.Throws<KeyNotFoundException>(() => dictionary.Remove((count + 1).ToString()));
 
             }
         }
@@ -540,7 +517,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region TrimExcess
 
         [Test]
-        public void SortedList_Generic_TrimExcess_AfterClearingAndAddingSomeElementsBack()
+        public void SortedDictionary_Generic_TrimExcess_AfterClearingAndAddingSomeElementsBack()
         {
             var data = ValidCollectionSizes();
 
@@ -550,14 +527,11 @@ namespace Bridge.ClientTest.Collections.Generic
 
                 if (dictionaryLength > 0)
                 {
-                    SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(dictionaryLength);
-                    dictionary.TrimExcess();
+                    SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(dictionaryLength);
                     dictionary.Clear();
-                    dictionary.TrimExcess();
                     Assert.AreEqual(0, dictionary.Count);
 
                     AddToCollection(dictionary, dictionaryLength / 10);
-                    dictionary.TrimExcess();
                     Assert.AreEqual(dictionaryLength / 10, dictionary.Count);
                 }
             }
@@ -566,24 +540,19 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_TrimExcess_AfterClearingAndAddingAllElementsBack()
+        public void SortedDictionary_Generic_TrimExcess_AfterClearingAndAddingAllElementsBack()
         {
             var data = ValidCollectionSizes();
-
             foreach (var testCase in data)
             {
                 int dictionaryLength = (int)testCase[0];
-
                 if (dictionaryLength > 0)
                 {
-                    SortedList<string, string> dictionary = (SortedList<string, string>)GenericIDictionaryFactory(dictionaryLength);
-                    dictionary.TrimExcess();
+                    SortedDictionary<string, string> dictionary = (SortedDictionary<string, string>)GenericIDictionaryFactory(dictionaryLength);
                     dictionary.Clear();
-                    dictionary.TrimExcess();
                     Assert.AreEqual(0, dictionary.Count);
 
                     AddToCollection(dictionary, dictionaryLength);
-                    dictionary.TrimExcess();
                     Assert.AreEqual(dictionaryLength, dictionary.Count);
                 }
             }
@@ -648,13 +617,13 @@ namespace Bridge.ClientTest.Collections.Generic
     }
 
     [Category(Constants.MODULE_ACTIVATOR)]
-    [TestFixture(TestNameFormat = "SortedList_Generic_Tests_int_int - {0}")]
-    public class SortedList_Generic_Tests_int_int : SortedList_Generic_Tests<int, int>
+    [TestFixture(TestNameFormat = "SortedDictionaryGenericTestsIntInt - {0}")]
+    public class SortedDictionaryGenericTestsIntInt : SortedDictionary_Generic_Tests<int, int>
     {
 #region Constructor_IComparer
 
         [Test]
-        public void SortedList_Generic_Constructor_IComparer()
+        public void SortedDictionary_Generic_Constructor_IComparer()
         {
             var data = ValidCollectionSizes();
 
@@ -664,7 +633,7 @@ namespace Bridge.ClientTest.Collections.Generic
 
                 IComparer<int> comparer = GetKeyIComparer();
                 IDictionary<int, int> source = GenericIDictionaryFactory(count);
-                SortedList<int, int> copied = new SortedList<int, int>(source, comparer);
+                SortedDictionary<int, int> copied = new SortedDictionary<int, int>(source, comparer);
                 Assert.AreDeepEqual(source.ToArray(), copied.ToArray());
                 Assert.True(Object.ReferenceEquals(comparer, copied.Comparer));
             }
@@ -675,7 +644,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region Constructor_IDictionary
 
         [Test]
-        public void SortedList_Generic_Constructor_IDictionary()
+        public void SortedDictionary_Generic_Constructor_IDictionary()
         {
             var data = ValidCollectionSizes();
 
@@ -684,14 +653,14 @@ namespace Bridge.ClientTest.Collections.Generic
                 int count = (int)testCase[0];
 
                 IDictionary<int, int> source = GenericIDictionaryFactory(count);
-                IDictionary<int, int> copied = new SortedList<int, int>(source);
+                IDictionary<int, int> copied = new SortedDictionary<int, int>(source);
                 Assert.AreDeepEqual(source.ToArray(), copied.ToArray());
             }
 
         }
 
         [Test]
-        public void SortedList_Generic_Constructor_NullIDictionary_ThrowsArgumentNullException()
+        public void SortedDictionary_Generic_Constructor_NullIDictionary_ThrowsArgumentNullException()
         {
             var data = ValidCollectionSizes();
 
@@ -699,7 +668,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                Assert.Throws<ArgumentNullException>(() => new SortedList<int, int>((IDictionary<int, int>)null));
+                Assert.Throws<ArgumentNullException>(() => new SortedDictionary<int, int>((IDictionary<int, int>)null));
             }
 
         }
@@ -709,7 +678,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region Constructor_IDictionary_IComparer
 
         [Test]
-        public void SortedList_Generic_Constructor_IDictionary_IComparer()
+        public void SortedDictionary_Generic_Constructor_IDictionary_IComparer()
         {
             var data = ValidCollectionSizes();
 
@@ -719,7 +688,7 @@ namespace Bridge.ClientTest.Collections.Generic
 
                 IComparer<int> comparer = GetKeyIComparer();
                 IDictionary<int, int> source = GenericIDictionaryFactory(count);
-                SortedList<int, int> copied = new SortedList<int, int>(source, comparer);
+                SortedDictionary<int, int> copied = new SortedDictionary<int, int>(source, comparer);
                 Assert.AreDeepEqual(source.ToArray(), copied.ToArray());
                 Assert.True(Object.ReferenceEquals(comparer, copied.Comparer));
             }
@@ -732,33 +701,27 @@ namespace Bridge.ClientTest.Collections.Generic
 #region Constructor_int
 
         [Test]
-        public void SortedList_Generic_Constructor_int()
+        public void SortedDictionary_Generic_Constructor_int()
         {
             var data = ValidCollectionSizes();
-
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-
-                SortedList<int, int> dictionary = new SortedList<int, int>(count);
+                SortedDictionary<int, int> dictionary = new SortedDictionary<int, int>();
                 Assert.AreEqual(0, dictionary.Count);
             }
         }
 
         [Test]
-        public void SortedList_Generic_Constructor_NegativeCapacity_ThrowsArgumentOutOfRangeException()
+        public void SortedDictionary_Generic_Constructor_NegativeCapacity_ThrowsArgumentOutOfRangeException()
         {
             var data = ValidCollectionSizes();
-
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-
-                Assert.Throws<ArgumentOutOfRangeException>(() => new SortedList<int, int>(-1));
-                Assert.Throws<ArgumentOutOfRangeException>(() => new SortedList<int, int>(int.MinValue));
+                IDictionary<int, int> dictionary = null;
+                Assert.Throws<ArgumentNullException>(() => new SortedDictionary<int, int>(dictionary));
             }
-
-
         }
 
 #endregion
@@ -766,7 +729,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region Constructor_int_IComparer
 
         [Test]
-        public void SortedList_Generic_Constructor_int_IComparer()
+        public void SortedDictionary_Generic_Constructor_int_IComparer()
         {
             var data = ValidCollectionSizes();
 
@@ -775,7 +738,7 @@ namespace Bridge.ClientTest.Collections.Generic
                 int count = (int)testCase[0];
 
                 IComparer<int> comparer = GetKeyIComparer();
-                SortedList<int, int> dictionary = new SortedList<int, int>(count, comparer);
+                SortedDictionary<int, int> dictionary = new SortedDictionary<int, int>(comparer);
                 Assert.AreEqual(0, dictionary.Count);
                 Assert.True(Object.ReferenceEquals(comparer, dictionary.Comparer));
             }
@@ -787,7 +750,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region Capacity
 
         [Test]
-        public void SortedList_Generic_Capacity_setRoundTrips()
+        public void SortedDictionary_Generic_Capacity_setRoundTrips()
         {
             var data = ValidCollectionSizes();
 
@@ -795,26 +758,24 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
-                dictionary.Capacity = count * 2;
-                dictionary.Capacity = count * 2 + 16000;
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
+                Assert.AreEqual(count, dictionary.Count);
             }
 
 
         }
 
         [Test]
-        public void SortedList_Generic_Capacity_NegativeValue_ThrowsArgumentOutOfRangeException()
+        public void SortedDictionary_Generic_Capacity_NegativeValue_ThrowsArgumentOutOfRangeException()
         {
             var data = ValidCollectionSizes();
 
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
-                int capacityBefore = dictionary.Capacity;
-                Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.Capacity = -1);
-                Assert.AreEqual(capacityBefore, dictionary.Capacity);
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
+                int capacityBefore = dictionary.Count;
+                Assert.AreEqual(capacityBefore, dictionary.Count);
 
             }
 
@@ -822,7 +783,7 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_Capacity_LessThanCount_ThrowsArgumentOutOfRangeException()
+        public void SortedDictionary_Generic_Capacity_LessThanCount_ThrowsArgumentOutOfRangeException()
         {
             var data = ValidCollectionSizes();
 
@@ -830,25 +791,24 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory();
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory();
                 for (int i = 0; i < count; i++)
                 {
                     AddToCollection(dictionary, 1);
-                    Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.Capacity = i);
                 }
             }
 
         }
 
         [Test]
-        public void SortedList_Generic_Capacity_GrowsDuringAdds()
+        public void SortedDictionary_Generic_Capacity_GrowsDuringAdds()
         {
             var data = ValidCollectionSizes();
 
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory();
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory();
                 for (int i = 0; i < count; i++)
                 {
                     AddToCollection(dictionary, 1);
@@ -860,38 +820,30 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_Capacity_ClearDoesntTrim()
+        public void SortedDictionary_Generic_Capacity_ClearDoesntTrim()
         {
             var data = ValidCollectionSizes();
-
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory();
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory();
                 for (int i = 0; i < count; i++)
                 {
                     AddToCollection(dictionary, 1);
                 }
                 dictionary.Clear();
-                if (count == 0)
-                {
-                    Assert.AreEqual(0, dictionary.Capacity);
-                }
             }
-
-
         }
 
         [Test]
-        public void SortedList_Generic_Capacity_ClearTrimsToInitialCapacity()
+        public void SortedDictionary_Generic_Capacity_ClearTrimsToInitialCapacity()
         {
             var data = ValidCollectionSizes();
 
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-
-                SortedList<int, int> dictionary = new SortedList<int, int>(count);
+                SortedDictionary<int, int> dictionary = new SortedDictionary<int, int>();
                 AddToCollection(dictionary, count);
                 dictionary.Clear();
             }
@@ -902,7 +854,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region ContainsValue
 
         [Test]
-        public void SortedList_Generic_ContainsValue_NotPresent()
+        public void SortedDictionary_Generic_ContainsValue_NotPresent()
         {
             var data = ValidCollectionSizes();
 
@@ -910,7 +862,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
                 int seed = 4315;
                 int notPresent = CreateTValue(seed++);
                 while (dictionary.Values.Contains(notPresent))
@@ -922,7 +874,7 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_ContainsValue_Present()
+        public void SortedDictionary_Generic_ContainsValue_Present()
         {
             var data = ValidCollectionSizes();
 
@@ -930,7 +882,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
                 int seed = 4315;
                 KeyValuePair<int, int> notPresent = CreateT(seed++);
                 while (dictionary.Contains(notPresent))
@@ -944,7 +896,7 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_ContainsValue_DefaultValueNotPresent()
+        public void SortedDictionary_Generic_ContainsValue_DefaultValueNotPresent()
         {
             var data = ValidCollectionSizes();
 
@@ -952,13 +904,13 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
                 Assert.False(dictionary.ContainsValue(default(int)));
             }
         }
 
         [Test]
-        public void SortedList_Generic_ContainsValue_DefaultValuePresent()
+        public void SortedDictionary_Generic_ContainsValue_DefaultValuePresent()
         {
             var data = ValidCollectionSizes();
 
@@ -966,7 +918,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
                 int seed = 4315;
                 int notPresent = CreateTKey(seed++);
                 while (dictionary.ContainsKey(notPresent))
@@ -983,26 +935,24 @@ namespace Bridge.ClientTest.Collections.Generic
 #region IndexOfKey
 
         [Test]
-        public void SortedList_Generic_IndexOf_DefaultKeyNotContainedInSortedList()
+        public void SortedDictionary_Generic_IndexOf_DefaultKeyNotContainedInSortedDictionary()
         {
             var data = ValidCollectionSizes();
-
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
                 int key = default(int);
                 if (dictionary.ContainsKey(key))
                 {
                     dictionary.Remove(key);
                 }
-                Assert.AreEqual(-1, dictionary.IndexOfKey(key));
+                Assert.AreEqual(-1, dictionary.Keys.ToList().IndexOf(key));
             }
         }
 
         [Test]
-        public void SortedList_Generic_IndexOfKey_EachKey()
+        public void SortedDictionary_Generic_IndexOfKey_EachKey()
         {
             var data = ValidCollectionSizes();
 
@@ -1012,11 +962,12 @@ namespace Bridge.ClientTest.Collections.Generic
 
 
                 // Assumes no duplicate elements contained in the dictionary returned by GenericIListFactory
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
-                IList<int> keys = dictionary.Keys;
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
+                var keys = dictionary.Keys;
                 Enumerable.Range(0, count).ForEach(index =>
                 {
-                    Assert.AreEqual(index, dictionary.IndexOfKey(keys[index]));
+                    var key = keys.ElementAt(index);
+                    Assert.AreEqual(key, dictionary.ElementAt(index).Key);
                 });
             }
         }
@@ -1026,27 +977,24 @@ namespace Bridge.ClientTest.Collections.Generic
 #region IndexOfValue
 
         [Test]
-        public void SortedList_Generic_IndexOfValue_DefaultValueNotContainedInList()
+        public void SortedDictionary_Generic_IndexOfValue_DefaultValueNotContainedInList()
         {
             var data = ValidCollectionSizes();
-
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-
-
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
                 int value = default(int);
                 while (dictionary.ContainsValue(value))
                 {
-                    dictionary.RemoveAt(dictionary.IndexOfValue(value));
+                    dictionary.Remove(dictionary.First(i => i.Value == value).Key);
                 }
-                Assert.AreEqual(-1, dictionary.IndexOfValue(value));
+                Assert.AreEqual(-1, dictionary.Values.ToList().IndexOf(value));
             }
         }
 
         [Test]
-        public void SortedList_Generic_IndexOfValue_DefaultValueContainedInList()
+        public void SortedDictionary_Generic_IndexOfValue_DefaultValueContainedInList()
         {
             var data = ValidCollectionSizes();
 
@@ -1054,12 +1002,12 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
                 int key = GetNewKey(dictionary);
                 int value = default(int);
                 while (dictionary.ContainsValue(value))
                 {
-                    dictionary.RemoveAt(dictionary.IndexOfValue(value));
+                    dictionary.Remove(dictionary.First(i => i.Value == value).Key);
                 }
 
                 List<int> keys = dictionary.Keys.ToList();
@@ -1067,12 +1015,12 @@ namespace Bridge.ClientTest.Collections.Generic
                 keys.Sort();
                 int expectedIndex = keys.IndexOf(key);
                 dictionary.Add(key, value);
-                Assert.AreEqual(expectedIndex, dictionary.IndexOfValue(value));
+                Assert.AreEqual(expectedIndex, dictionary.Values.ToList().IndexOf(value));
             }
         }
 
         [Test]
-        public void SortedList_Generic_IndexOfValue_ValueInCollectionMultipleTimes()
+        public void SortedDictionary_Generic_IndexOfValue_ValueInCollectionMultipleTimes()
         {
             var data = ValidCollectionSizes();
 
@@ -1081,7 +1029,7 @@ namespace Bridge.ClientTest.Collections.Generic
                 int count = (int)testCase[0];
 
                 int seed = 53214;
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
                 int key1 = CreateTKey(seed++);
                 int key2 = CreateTKey(seed++);
                 int value = CreateTValue(seed++);
@@ -1095,7 +1043,7 @@ namespace Bridge.ClientTest.Collections.Generic
                 }
                 while (dictionary.ContainsValue(value))
                 {
-                    dictionary.RemoveAt(dictionary.IndexOfValue(value));
+                    dictionary.Remove(dictionary.First(i => i.Value == value).Key);
                 }
 
                 List<int> keys = dictionary.Keys.ToList();
@@ -1106,12 +1054,12 @@ namespace Bridge.ClientTest.Collections.Generic
 
                 dictionary.Add(key1, value);
                 dictionary.Add(key2, value);
-                Assert.AreEqual(expectedIndex, dictionary.IndexOfValue(value));
+                Assert.AreEqual(expectedIndex, dictionary.Values.ToList().IndexOf(value));
             }
         }
 
         [Test]
-        public void SortedList_Generic_IndexOfValue_EachValue()
+        public void SortedDictionary_Generic_IndexOfValue_EachValue()
         {
             var data = ValidCollectionSizes();
 
@@ -1121,11 +1069,12 @@ namespace Bridge.ClientTest.Collections.Generic
 
 
                 // Assumes no duplicate elements contained in the dictionary returned by GenericIListFactory
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
-                IList<int> keys = dictionary.Keys;
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
+                var keys = dictionary.Keys;
                 Enumerable.Range(0, count).ForEach(index =>
                 {
-                    Assert.AreEqual(index, dictionary.IndexOfValue(dictionary[keys[index]]));
+                    var key = keys.ElementAt(index);
+                    Assert.AreEqual(key, dictionary.ElementAt(index).Key);
                 });
             }
         }
@@ -1134,13 +1083,13 @@ namespace Bridge.ClientTest.Collections.Generic
 
 #region RemoveAt
 
-        private void RemoveAt(SortedList<int, int> dictionary, KeyValuePair<int, int> element)
+        private void RemoveAt(SortedDictionary<int, int> dictionary, KeyValuePair<int, int> element)
         {
-            dictionary.RemoveAt(dictionary.IndexOfKey(element.Key));
+            dictionary.Remove(element.Key);
         }
 
         [Test]
-        public void SortedList_Generic_RemoveAt_NonDefaultValueContainedInCollection()
+        public void SortedDictionary_Generic_RemoveAt_NonDefaultValueContainedInCollection()
         {
             var data = ValidCollectionSizes();
 
@@ -1149,7 +1098,7 @@ namespace Bridge.ClientTest.Collections.Generic
                 int count = (int)testCase[0];
 
                 int seed = count * 251;
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
                 KeyValuePair<int, int> pair = CreateT(seed++);
                 if (!dictionary.ContainsKey(pair.Key))
                 {
@@ -1162,7 +1111,7 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_RemoveAt_EveryValue()
+        public void SortedDictionary_Generic_RemoveAt_EveryValue()
         {
             var data = ValidCollectionSizes();
 
@@ -1170,7 +1119,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
                 dictionary.ToList().ForEach(value =>
                 {
                     RemoveAt(dictionary, value);
@@ -1180,18 +1129,18 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_RemoveAt_OutOfRangeValues()
+        public void SortedDictionary_Generic_RemoveAt_OutOfRangeValues()
         {
             var data = ValidCollectionSizes();
 
             foreach (var testCase in data)
             {
                 int count = (int)testCase[0];
-                SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(count);
-                Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.RemoveAt(-1));
-                Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.RemoveAt(int.MinValue));
-                Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.RemoveAt(count));
-                Assert.Throws<ArgumentOutOfRangeException>(() => dictionary.RemoveAt(count + 1));
+                SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(count);
+                Assert.Throws<KeyNotFoundException>(() => dictionary.Remove(-1));
+                Assert.Throws<KeyNotFoundException>(() => dictionary.Remove(int.MinValue));
+                Assert.Throws<KeyNotFoundException>(() => dictionary.Remove(count));
+                Assert.Throws<KeyNotFoundException>(() => dictionary.Remove(count + 1));
 
             }
         }
@@ -1201,7 +1150,7 @@ namespace Bridge.ClientTest.Collections.Generic
 #region TrimExcess
 
         [Test]
-        public void SortedList_Generic_TrimExcess_AfterClearingAndAddingSomeElementsBack()
+        public void SortedDictionary_Generic_TrimExcess_AfterClearingAndAddingSomeElementsBack()
         {
             var data = ValidCollectionSizes();
 
@@ -1211,14 +1160,11 @@ namespace Bridge.ClientTest.Collections.Generic
 
                 if (dictionaryLength > 0)
                 {
-                    SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(dictionaryLength);
-                    dictionary.TrimExcess();
+                    SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(dictionaryLength);
                     dictionary.Clear();
-                    dictionary.TrimExcess();
                     Assert.AreEqual(0, dictionary.Count);
 
                     AddToCollection(dictionary, dictionaryLength / 10);
-                    dictionary.TrimExcess();
                     Assert.AreEqual(dictionaryLength / 10, dictionary.Count);
                 }
             }
@@ -1227,7 +1173,7 @@ namespace Bridge.ClientTest.Collections.Generic
         }
 
         [Test]
-        public void SortedList_Generic_TrimExcess_AfterClearingAndAddingAllElementsBack()
+        public void SortedDictionary_Generic_TrimExcess_AfterClearingAndAddingAllElementsBack()
         {
             var data = ValidCollectionSizes();
 
@@ -1237,14 +1183,11 @@ namespace Bridge.ClientTest.Collections.Generic
 
                 if (dictionaryLength > 0)
                 {
-                    SortedList<int, int> dictionary = (SortedList<int, int>)GenericIDictionaryFactory(dictionaryLength);
-                    dictionary.TrimExcess();
+                    SortedDictionary<int, int> dictionary = (SortedDictionary<int, int>)GenericIDictionaryFactory(dictionaryLength);
                     dictionary.Clear();
-                    dictionary.TrimExcess();
                     Assert.AreEqual(0, dictionary.Count);
 
                     AddToCollection(dictionary, dictionaryLength);
-                    dictionary.TrimExcess();
                     Assert.AreEqual(dictionaryLength, dictionary.Count);
                 }
             }
@@ -1306,3 +1249,5 @@ namespace Bridge.ClientTest.Collections.Generic
         protected override int CreateTValue(int seed) => CreateTKey(seed);
     }
 }
+
+#endif

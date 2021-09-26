@@ -876,6 +876,11 @@ namespace CSharpLua {
         if (name != null) {
           return name;
         }
+      } else if (symbol.Kind == SymbolKind.Property) {
+        string name = XmlMetaProvider.GetPropertyMapName((IPropertySymbol)symbol);
+        if (name != null) {
+          return name;
+        }
       }
 
       if (!IsFromLuaModule(symbol)) {
@@ -1818,6 +1823,9 @@ namespace CSharpLua {
             case SymbolKind.Field: {
               var field = (IFieldSymbol)i;
               if (field.IsStringConstNotInline()) {
+                return true;
+              }
+              if (field.IsStatic && field.IsPrivate()) {
                 return true;
               }
               break;

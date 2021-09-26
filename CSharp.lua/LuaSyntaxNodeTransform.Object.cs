@@ -73,7 +73,7 @@ namespace CSharpLua {
       if (symbol != null) {
         string codeTemplate = XmlMetaProvider.GetMethodCodeTemplate(symbol);
         if (codeTemplate != null) {
-          creationExpression = BuildCodeTemplateExpression(codeTemplate, null, FillCodeTemplateInvocationArguments(symbol, node.ArgumentList, null), symbol.TypeArguments);
+          creationExpression = BuildCodeTemplateExpression(codeTemplate, node, FillCodeTemplateInvocationArguments(symbol, node.ArgumentList, null), symbol.TypeArguments);
         } else if (node.Type.IsKind(SyntaxKind.NullableType)) {
           Contract.Assert(node.ArgumentList!.Arguments.Count == 1);
           var argument = node.ArgumentList.Arguments.First();
@@ -155,7 +155,8 @@ namespace CSharpLua {
       if (node.NameEquals != null) {
         name = node.NameEquals.Accept<LuaIdentifierNameSyntax>(this);
       } else {
-        name = (LuaIdentifierNameSyntax)expression;
+        var property = semanticModel_.GetDeclaredSymbol(node);
+        name = property!.Name;
       }
       return new LuaKeyValueTableItemSyntax(name, expression);
     }
@@ -171,7 +172,10 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node) {
       var symbol = (IMethodSymbol)semanticModel_.GetSymbolInfo(node).Symbol;
-      var creationExpression = GetObjectCreationExpression(symbol, node);
+      string codeTemplate = XmlMetaProvider.GetMethodCodeTemplate(symbol);
+      var creationExpression = codeTemplate != null 
+        ? BuildCodeTemplateExpression(codeTemplate, node, FillCodeTemplateInvocationArguments(symbol, node.ArgumentList, null), symbol.TypeArguments)
+        : GetObjectCreationExpression(symbol, node);
       return GetObjectCreationInitializer(creationExpression, node);
     }
 
@@ -193,9 +197,8 @@ namespace CSharpLua {
       ISymbol symbol = semanticModel_.GetSymbolInfo(node).Symbol;
       Contract.Assert(symbol != null);
       if (symbol.Kind == SymbolKind.Method) {
-        return GetMethodNameExpression((IMethodSymbol)symbol, node);
+        return GetMethodNameExpression((IMethodSymbol)symbol, node, false);
       }
-
       return GetTypeName(symbol);
     }
 
@@ -252,7 +255,10 @@ namespace CSharpLua {
 
       {
         if (arrayType.IsSimpleArray) {
-          var size = arrayType.RankSpecifier.Sizes[0];
+          var size = arrayType.RankSpecifier.Sizes.FirstOrDefault() ?? LuaNumberLiteralExpressionSyntax.Zero;
+          if (size is LuaNumberLiteralExpressionSyntax { Number: 0 }) {
+            return BuildArray(arrayType, Array.Empty<LuaExpressionSyntax>());
+          }
           return BuildArray(arrayType, size);
         }
 

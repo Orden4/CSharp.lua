@@ -23,6 +23,8 @@ local each = System.each
 local lengthFn = System.lengthFn
 local versions = System.versions
 local Array = System.Array
+local toString = System.toString
+
 local checkIndexAndCount = System.checkIndexAndCount
 local throwFailedVersion = System.throwFailedVersion
 local ArgumentNullException = System.ArgumentNullException
@@ -94,13 +96,13 @@ local KeyValuePair = {
     local count = 2
     local k, v = this.Key, this.Value
     if k ~= nil then
-      t[count] = k:ToString()
+      t[count] = toString(k)
       count = count + 1
     end
     t[count] = ", "
     count = count + 1
     if v ~= nil then
-      t[count] = v:ToString()
+      t[count] = toString(v)
       count = count + 1
     end
     t[count] = "]"
@@ -413,7 +415,7 @@ end, {
     local index = this.index
     local pair = t[index]
     if pair ~= nil then
-      if t.kind then
+      if this.kind then
         this.current = pair.Value
       else
         this.current = pair.Key
@@ -441,7 +443,21 @@ local ArrayDictionaryCollection = define("System.Collections.Generic.ArrayDictio
     this.kind = kind
   end,
   getCount = function (this)
-    return getCount(this.dict)
+    return #this.dict
+  end,
+  get = function (this, index)
+    local p = this.dict[index + 1]
+    if p == nil then throw(System.ArgumentOutOfRangeException()) end
+    if this.kind then
+      return p.Value
+    end
+    return p.Key
+  end,
+  Contains = function (this, v)
+    if this.kind then
+      return this.dict:ContainsValue(v)
+    end 
+    return this.dict:ContainsKey(v)
   end,
   GetEnumerator = function (this)
     return arrayDictionaryEnumerator(this.dict, this.kind, this.__genericT__)
@@ -559,7 +575,7 @@ local ArrayDictionary = (function ()
       if len > 0 then
         local comparer = EqualityComparer(this.__genericTValue__).getDefault()
         local equals = comparer.EqualsOf
-        for i = 1, #this do
+        for i = 1, len do
           if equals(comparer, value, this[i].Value) then
             return true
           end
@@ -698,6 +714,7 @@ local DictionaryFn = define("System.Collections.Generic.Dictionary", function(TK
 end, Dictionary, 2)
 
 System.Dictionary = DictionaryFn
+System.ArrayDictionary = ArrayDictionaryFn
 
 local Object = System.Object
 System.Hashtable = DictionaryFn(Object, Object)

@@ -8,11 +8,12 @@ using System.Collections.Generic;
 using Bridge.ClientTest.Collections.Generic.Base;
 using Bridge.Test.NUnit;
 
+#if true
 namespace Bridge.ClientTest.Collections.Generic
 {
     [Category(Constants.MODULE_ACTIVATOR)]
-    [TestFixture(TestNameFormat = "SortedList_IDictionary_NonGeneric_Tests - {0}")]
-    public class SortedList_IDictionary_NonGeneric_Tests: TestBase
+    [TestFixture(TestNameFormat = "SortedDictionary_IDictionary_NonGeneric_Tests - {0}")]
+    public class SortedDictionary_IDictionary_NonGeneric_Tests: TestBase
     {
 #region IDictionary Helper Methods
 
@@ -30,7 +31,7 @@ namespace Bridge.ClientTest.Collections.Generic
 
         protected IDictionary NonGenericIDictionaryFactory()
         {
-            return new SortedList<string, string>();
+            return new SortedDictionary<string, string>();
         }
 
         protected object CreateTKey(int seed)
@@ -59,7 +60,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                IDictionary dictionary = new SortedList<string, int>();
+                IDictionary dictionary = new SortedDictionary<string, int>();
                 Assert.Throws<ArgumentNullException>(() => dictionary[GetNewKey(dictionary)] = null);
             }
         }
@@ -73,7 +74,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                IDictionary dictionary = new SortedList<string, string>();
+                IDictionary dictionary = new SortedDictionary<string, string>();
                 Assert.Throws<ArgumentException>(() => dictionary[23] = CreateTValue(12345));
                 Assert.True(dictionary.Count == 0);
             }
@@ -88,7 +89,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                IDictionary dictionary = new SortedList<string, string>();
+                IDictionary dictionary = new SortedDictionary<string, string>();
                 object missingKey = GetNewKey(dictionary);
                 Assert.Throws<ArgumentException>(() => dictionary[missingKey] = 324);
                 Assert.True(dictionary.Count == 0);
@@ -104,7 +105,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                IDictionary dictionary = new SortedList<string, string>();
+                IDictionary dictionary = new SortedDictionary<string, string>();
                 object missingKey = 23;
                 Assert.Throws<ArgumentException>(() => dictionary.Add(missingKey, CreateTValue(12345)));
                 Assert.True(dictionary.Count == 0);
@@ -120,7 +121,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                IDictionary dictionary = new SortedList<string, string>();
+                IDictionary dictionary = new SortedDictionary<string, string>();
                 object missingKey = GetNewKey(dictionary);
                 Assert.Throws<ArgumentException>(() => dictionary.Add(missingKey, 324));
                 Assert.True(dictionary.Count == 0);
@@ -136,7 +137,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                IDictionary dictionary = new SortedList<string, int>();
+                IDictionary dictionary = new SortedDictionary<string, int>();
                 object missingKey = GetNewKey(dictionary);
                 Assert.Throws<ArgumentNullException>(() => dictionary.Add(missingKey, null));
                 Assert.True(dictionary.Count == 0);
@@ -152,7 +153,7 @@ namespace Bridge.ClientTest.Collections.Generic
             {
                 int count = (int)testCase[0];
 
-                IDictionary dictionary = new SortedList<string, int>();
+                IDictionary dictionary = new SortedDictionary<string, int>();
                 Assert.False(dictionary.Contains(1));
             }
         }
@@ -160,3 +161,4 @@ namespace Bridge.ClientTest.Collections.Generic
     }
 }
 
+#endif

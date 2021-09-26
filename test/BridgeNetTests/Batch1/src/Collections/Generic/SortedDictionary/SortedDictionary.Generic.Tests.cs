@@ -8,12 +8,13 @@ using System.Linq;
 using Bridge.ClientTest.Collections.Generic.Base;
 using Bridge.Test.NUnit;
 
+#if true
 namespace Bridge.ClientTest.Collections.Generic
 {
     /// <summary>
     /// Contains tests that ensure the correctness of the Dictionary class.
     /// </summary>
-    public abstract class SortedList_Generic_Tests<TKey, TValue> : TestBase
+    public abstract class SortedDictionary_Generic_Tests<TKey, TValue> : TestBase
     {
         protected abstract KeyValuePair<TKey, TValue> CreateT(int seed);
         protected abstract TKey CreateTKey(int seed);
@@ -61,7 +62,7 @@ namespace Bridge.ClientTest.Collections.Generic
 
         protected IDictionary<TKey, TValue> GenericIDictionaryFactory()
         {
-            return new SortedList<TKey, TValue>();
+            return new SortedDictionary<TKey, TValue>();
         }
 
         protected Type ICollection_Generic_CopyTo_IndexLargerThanArrayCount_ThrowType => typeof(ArgumentOutOfRangeException);
@@ -70,3 +71,4 @@ namespace Bridge.ClientTest.Collections.Generic
     }
 }
 
+#endif
