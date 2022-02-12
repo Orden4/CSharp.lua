@@ -136,10 +136,15 @@ local function set(className, cls)
   end
 end
 
-local function multiKey(t, ...)
+local function multiKey(t, f, ...)
   local n, i, k = select("#", ...), 1
   while true do
-    k = assert(select(i, ...))
+    local arg = assert(select(i, ...))
+    if f then
+      k = f(arg)
+    else
+      k = arg
+    end
     if i == n then
       break
     end
@@ -350,7 +355,7 @@ local function defGeneric(name, kind, cls, generic, ...)
   local genericClass, genericBaseName = getDefGenericClass(name, kind, generic, ...)
   local mt = {}
   local fn = function(_, ...)
-    local gt, gk = multiKey(mt, ...)
+    local gt, gk = multiKey(mt, nil, ...)
     local t = gt[gk]
     if t == nil then
       local class, super  = cls(...)
@@ -412,7 +417,7 @@ local function defArray(name, cls, Array, MultiArray)
 
   local mtMulti = {}
   local function createMulti(MultiArray, T, dimension)
-    local gt, gk = multiKey(mtMulti, T, dimension)
+    local gt, gk = multiKey(mtMulti, nil, T, dimension)
     local ArrayT = gt[gk]
     if ArrayT == nil then
       local name = T.__name__ .. "[" .. (","):rep(dimension - 1) .. "]"
@@ -1011,8 +1016,8 @@ if debugsetmetatable then
     throw(System.ArgumentException("Argument_ImplementIComparable"))
   end
 
-  toString = function (t)
-    return t ~= nil and t:ToString() or ""
+  toString = function (t, format)
+    return t ~= nil and t:ToString(format) or ""
   end
 
   debugsetmetatable(nil, {
@@ -1109,15 +1114,17 @@ else
     throw(System.ArgumentException("Argument_ImplementIComparable"))
   end
 
-  toString = function (obj)
+  toString = function (obj, format)
     if obj == nil then return "" end
     local t = type(obj) 
     if t == "table" then
-      return obj:ToString()
+      return obj:ToString(format)
     elseif t == "boolean" then
       return obj and "True" or "False"
     elseif t == "function" then
       return "System.Delegate"
+    elseif t == "Number" and format then
+      return System.Number.ToString(obj, format)
     end
     return tostring(obj)
   end
@@ -1312,6 +1319,7 @@ local ValueTuple = defStc("System.ValueTuple", {
     throw(System.NotSupportedException("not support default(T) when T is ValueTuple"))
   end
 })
+
 local valueTupleMetaTable = setmetatable({ __index  = ValueType, __call = tupleCreate }, ValueType)
 setmetatable(ValueTuple, valueTupleMetaTable)
 

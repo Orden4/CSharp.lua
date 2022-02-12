@@ -544,9 +544,21 @@ limitations under the License.
           <get Template="#{this}" />
         </property>
       </class>
+      <class name="PriorityQueue`2" Name="System.PriorityQueue">
+        <method name=".ctor" Template="{class}(0, {0})">
+          <arg type="System.Collections.Generic.IComparer`1" />
+        </method>
+        <property name="Count">
+          <get Template="#{this}" />
+        </property>
+      </class>
       <class name="KeyValuePair`2" Name="System.KeyValuePair">
-        <property name="Key" IsField="true" />
-        <property name="Value" IsField="true" />
+        <property name="Key">
+          <get Template="{this}[1]" />
+        </property>
+        <property name="Value">
+          <get Template="{this}[2]" />
+        </property>
       </class>
       <class name="IDictionary`2">
         <method name="Add" Name="AddKeyValue" />

@@ -493,10 +493,10 @@ local function fromBase64ComputeResultLength(s, len)
 end
 
 local function FromBase64Decode(s, len, t, resultLength)
-  local i, j, codes, c = 1, 0, 0x000000ff
+  local i, j, codes, c, gotoEqualityCharEncountered = 1, 0, 0x000000ff
   while true do
     if i > len then
-      goto AllInputConsumed
+      break
     end
     c = sbyte(s, i)
     i = i + 1
@@ -513,7 +513,8 @@ local function FromBase64Decode(s, len, t, resultLength)
         c = 63
       elseif c == 13 or c == 10 or c == 32 or c == 9 then
       elseif c == 61 then
-        goto EqualityCharEncountered
+        gotoEqualityCharEncountered = true
+        break
       else
         throw(FormatException("Format_BadBase64Char"))
       end
@@ -531,49 +532,49 @@ local function FromBase64Decode(s, len, t, resultLength)
     end
   end
 
-::EqualityCharEncountered::
-  if i > len then
-    codes = sl(codes, 6)
-    if (band(codes, 0x80000000)) == 0 then
-      throw(FormatException("Format_BadBase64CharArrayLength"))
-    end
-
-    if j < 2 then
-      return - 1
-    end
-
-    t[j + 1] = band(sr(codes, 16), 0xff)
-    t[j + 2] = band(sr(codes, 8), 0xff)
-    j = j + 2
-    codes = 0x000000ff
-  else
-    while i < len do
-      c = sbyte(s, i)
-      if c ~= 32 and c ~= 10 and c ~= 13 and c ~= 9 then
-        break
-      end
-      i = i + 1
-    end
-
-    if i == len and sbyte(s, i) == 61 then
-      codes = sl(codes, 12)
+  if gotoEqualityCharEncountered then
+    if i > len then
+      codes = sl(codes, 6)
       if (band(codes, 0x80000000)) == 0 then
-        throw(FormatException(("Format_BadBase64CharArrayLength")))
+        throw(FormatException("Format_BadBase64CharArrayLength"))
       end
 
-      if resultLength - j < 1 then
+      if j < 2 then
         return - 1
       end
 
       t[j + 1] = band(sr(codes, 16), 0xff)
-      j = j + 1
+      t[j + 2] = band(sr(codes, 8), 0xff)
+      j = j + 2
       codes = 0x000000ff
     else
-      System.throw(System.FormatException(("Format_BadBase64Char")))
+      while i < len do
+        c = sbyte(s, i)
+        if c ~= 32 and c ~= 10 and c ~= 13 and c ~= 9 then
+          break
+        end
+        i = i + 1
+      end
+
+      if i == len and sbyte(s, i) == 61 then
+        codes = sl(codes, 12)
+        if (band(codes, 0x80000000)) == 0 then
+          throw(FormatException(("Format_BadBase64CharArrayLength")))
+        end
+
+        if resultLength - j < 1 then
+          return - 1
+        end
+
+        t[j + 1] = band(sr(codes, 16), 0xff)
+        j = j + 1
+        codes = 0x000000ff
+      else
+        System.throw(System.FormatException(("Format_BadBase64Char")))
+      end
     end
   end
 
-::AllInputConsumed::
   if codes ~= 0x000000ff then
     throw(FormatException(("Format_BadBase64CharArrayLength")))
   end
@@ -964,13 +965,11 @@ local function toString(value, startIndex, length)
 end
 
 local function doubleToInt64Bits(value)
-  assert(isLittleEndian, "This method is implemented assuming little endian with an ambiguous spec.")
   local s = spack("d", value)
   return (sunpack("i8", s))
 end
 
 local function int64BitsToDouble(value)
-  assert(isLittleEndian, "This method is implemented assuming little endian with an ambiguous spec.")
   local s = spack("i8", value)
   return (sunpack("d", s))
 end

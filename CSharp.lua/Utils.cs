@@ -421,6 +421,11 @@ namespace CSharpLua {
       return type.IsNullableType() ? ((INamedTypeSymbol)type).TypeArguments.First() : null;
     }
 
+    public static bool IsNullableWithBasicElementType(this ITypeSymbol type) {
+      return type.IsNullableType(out var elementType)
+             && (elementType.IsBasicType() || type.SpecialType == SpecialType.System_DateTime || type.IsTimeSpanType());
+    }
+
     public static bool IsEnumType(this ITypeSymbol type, out ITypeSymbol symbol, out bool isNullable) {
       if (type.TypeKind == TypeKind.Enum) {
         symbol = type;
@@ -575,7 +580,7 @@ namespace CSharpLua {
     public static bool HasCSharpLuaAttribute(this SyntaxNode node, LuaDocumentStatement.AttributeFlags attribute, out string text) {
       text = null;
       var documentTrivia = node.GetLeadingTrivia().FirstOrDefault(i => i.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia));
-      if (documentTrivia != null) {
+      if (documentTrivia != default) {
         string document = documentTrivia.ToString();
         if (document.Contains(LuaDocumentStatement.ToString(attribute))) {
           text = document;
@@ -1058,8 +1063,7 @@ namespace CSharpLua {
     }
 
     public static string GetNewIdentifierName(string name, int index) {
-      return index switch
-      {
+      return index switch {
         0 => name,
         1 => name + "_",
         2 => "_" + name,

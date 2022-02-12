@@ -240,11 +240,11 @@ namespace CSharpLua {
       }
     }
 
-    private LuaExpressionSyntax BuildArrayCreationExpression(LuaArrayTypeAdapterExpressionSyntax arrayType, InitializerExpressionSyntax initializer) {
+    private LuaExpressionSyntax BuildArrayCreationExpression(IArrayTypeSymbol symbol, LuaArrayTypeAdapterExpressionSyntax arrayType, InitializerExpressionSyntax initializer) {
       if (initializer?.Expressions.Count > 0) {
         if (arrayType.IsSimpleArray) {
           var initializerExpressions = initializer.Expressions.Select(i => i.AcceptExpression(this)).ToList();
-          return BuildArray(arrayType, initializerExpressions);
+          return BuildArray(symbol, arrayType, initializerExpressions);
         }
 
         var rank = new LuaTableExpression { IsSingleLine = true };
@@ -257,7 +257,7 @@ namespace CSharpLua {
         if (arrayType.IsSimpleArray) {
           var size = arrayType.RankSpecifier.Sizes.FirstOrDefault() ?? LuaNumberLiteralExpressionSyntax.Zero;
           if (size is LuaNumberLiteralExpressionSyntax { Number: 0 }) {
-            return BuildArray(arrayType, Array.Empty<LuaExpressionSyntax>());
+            return BuildArray(symbol, arrayType, Array.Empty<LuaExpressionSyntax>());
           }
           return BuildArray(arrayType, size);
         }
@@ -272,13 +272,14 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitArrayCreationExpression(ArrayCreationExpressionSyntax node) {
       var arrayType = node.Type.Accept<LuaArrayTypeAdapterExpressionSyntax>(this);
-      return BuildArrayCreationExpression(arrayType, node.Initializer);
+      var symbol = (IArrayTypeSymbol)semanticModel_.GetTypeInfo(node.Type).Type;
+      return BuildArrayCreationExpression(symbol, arrayType, node.Initializer);
     }
 
     private LuaExpressionSyntax BuildArrayTypeFromInitializer(IArrayTypeSymbol arrayType, InitializerExpressionSyntax initializer) {
       var typeExpress = GetTypeName(arrayType);
       var arrayExpression = new LuaArrayTypeAdapterExpressionSyntax(typeExpress, new LuaArrayRankSpecifierSyntax(arrayType.Rank));
-      return BuildArrayCreationExpression(arrayExpression, initializer);
+      return BuildArrayCreationExpression(arrayType, arrayExpression, initializer);
     }
 
     public override LuaSyntaxNode VisitImplicitArrayCreationExpression(ImplicitArrayCreationExpressionSyntax node) {
@@ -1227,7 +1228,8 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitStackAllocArrayCreationExpression(StackAllocArrayCreationExpressionSyntax node) {
       var arrayType = node.Type.Accept<LuaArrayTypeAdapterExpressionSyntax>(this);
-      var array = BuildArrayCreationExpression(arrayType, node.Initializer);
+      var symbol = (IArrayTypeSymbol)semanticModel_.GetTypeInfo(node.Type).Type;
+      var array = BuildArrayCreationExpression(symbol, arrayType, node.Initializer);
       return new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.StackAlloc, array);
     }
 
@@ -1369,6 +1371,12 @@ namespace CSharpLua {
               var expression = BuildIsPatternExpression(targetNode, declarationPattern.Type, name);
               return expression.Not();
             }
+            case SyntaxKind.RecursivePattern: { 
+               var recursivePattern = (RecursivePatternSyntax)notPattern.Pattern;
+               var governingIdentifier = GetIdentifierNameFromExpression(targetExpression);
+               var expression = BuildRecursivePatternExpression(recursivePattern, governingIdentifier, null, targetNode);
+               return expression.Parenthesized().Not();
+            }
             default: {
               var expression = notPattern.Pattern.AcceptExpression(this);
               return targetExpression.NotEquals(expression);
@@ -1380,7 +1388,9 @@ namespace CSharpLua {
           var binaryPattern = (BinaryPatternSyntax)pattern;
           var name = GetIdentifierNameFromExpression(targetExpression);
           var left = BuildPatternExpression(name, binaryPattern.Left, targetNode);
+          CheckBinaryParenthesized(ref left);
           var right = BuildPatternExpression(name, binaryPattern.Right, targetNode);
+          CheckBinaryParenthesized(ref right);
           return pattern.IsKind(SyntaxKind.AndPattern) ? left.And(right) : left.Or(right);
         }
         case SyntaxKind.RelationalPattern: {
@@ -1388,6 +1398,10 @@ namespace CSharpLua {
           var right = relationalPattern.Expression.AcceptExpression(this);
           string token = relationalPattern.OperatorToken.ValueText;
           return targetExpression.Binary(token, right);
+        }
+        case SyntaxKind.TypePattern: {
+          var typePattern = (TypePatternSyntax)pattern;
+          return BuildIsPatternExpression(targetNode, typePattern.Type, targetExpression);
         }
         default: {
           var recursivePattern = (RecursivePatternSyntax)pattern;
@@ -1473,8 +1487,8 @@ namespace CSharpLua {
     }
 
     public override LuaSyntaxNode VisitRangeExpression(RangeExpressionSyntax node) {
-      var left = node.LeftOperand.AcceptExpression(this);
-      var right = node.RightOperand.AcceptExpression(this);
+      var left = node.LeftOperand?.AcceptExpression(this) ?? LuaIdentifierLiteralExpressionSyntax.Nil;
+      var right = node.RightOperand?.AcceptExpression(this) ?? LuaIdentifierLiteralExpressionSyntax.Nil;
       return LuaIdentifierNameSyntax.Range.Invocation(left, right);
     }
 

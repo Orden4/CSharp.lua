@@ -720,7 +720,7 @@ local function addOrderDict(t, k, v, keyComparer, T, version)
   if i >= 0 then
     throw(ArgumentException(er.Argument_AddingDuplicate(k)))
   end
-  tinsert(t, bnot(i) + 1, setmetatable({ Key = k, Value = v }, T))
+  tinsert(t, bnot(i) + 1, setmetatable({ k, v }, T))
   if version then
     versions[t] = (versions[t] or 0) + 1
   end
@@ -729,7 +729,7 @@ end
 local function getOrderDict(t, k, isObj)
   local i = getOrderDictIndex(t, k)
   if i >= 0 then
-    return t[i + 1].Value
+    return t[i + 1][2]
   end
   if isObj then
     return nil
@@ -740,9 +740,9 @@ end
 local function setOrderDict(t, k, v)
   local i = getOrderDictIndex(t, k)
   if i >= 0 then
-    t[i + 1].Value = v
+    t[i + 1][2] = v
   else
-    tinsert(t, bnot(i) + 1, setmetatable({ Key = k, Value = v }, t.__genericT__))
+    tinsert(t, bnot(i) + 1, setmetatable({ k, v }, t.__genericT__))
     versions[t] = (versions[t] or 0) + 1
   end
 end
@@ -764,6 +764,59 @@ local function getViewBetweenOrder(t, lowerValue, upperValue)
     end
   end
   return setmetatable(set, System.SortedSet(t.__genericT__))
+end
+
+local function heapDown(t, k, n, c)
+  local j
+  while true do
+    j = k * 2
+    if j <= n and j > 0 then
+      if j < n and c(t[j], t[j + 1]) > 0 then
+        j = j + 1
+      end
+      if c(t[k], t[j]) <= 0 then
+        break
+      end
+      t[j], t[k] = t[k], t[j]
+      k = j
+    else
+      break
+    end
+  end
+end
+
+local function heapUp(t, k, n, c)
+  while k > 1 do
+    local j = div(k, 2)
+    if c(t[j], t[k]) <= 0 then
+      break
+    end
+    t[j], t[k] = t[k], t[j]
+    k = j
+  end
+end
+
+local function heapify(t, c)
+  local n = #t
+  for i = div(n, 2), 1, -1 do
+    heapDown(t, i, n, c)  
+  end
+end
+
+local function heapAdd(t, v, c)
+  local n = #t + 1
+  t[n] = v
+  heapUp(t, n, n, c)
+end
+
+local function heapPop(t, c)
+  local n = #t
+  if n == 0 then return end
+  local v = t[1]
+  t[1] = t[n]
+  t[n] = nil
+  heapDown(t, 1, n - 1, c)
+  return v
 end
 
 local SortedSetEqualityComparerFn
@@ -941,13 +994,13 @@ Array = {
     if comparer == nil then comparer = Comparer_1(t.__genericT__).getDefault() end
     local c = comparer.Compare
     local keyComparer = function (_, p, v)
-      return c(comparer, p.Key, v)
+      return c(comparer, p[1], v)
     end
     t.comparer, t.keyComparer = comparer, keyComparer
     if type(dictionary) == "table" then
       local T = t.__genericT__
       for _, p in each(dictionary) do
-        local k, v = p.Key, p.Value
+        local k, v = p[1], p[2]
         addOrderDict(t, k, v, keyComparer, T)
       end
     end
@@ -976,7 +1029,7 @@ Array = {
     local k, v
     if select("#", ...) == 1 then
       local pair = ... 
-      k, v = pair.Key, pair.Value
+      k, v = pair[1], pair[2]
     else
       k, v = ...
     end
@@ -1062,6 +1115,11 @@ Array = {
   isOverlapsOrder = isOverlapsOrder,
   equalsOrder = equalsOrder,
   symmetricExceptWithOrder = symmetricExceptWithOrder,
+  heapDown = heapDown,
+  heapUp = heapUp,
+  heapify = heapify,
+  heapAdd = heapAdd,
+  heapPop = heapPop,
   last = last,
   lastOrDefault = function (t)
     local n = #t
@@ -1164,11 +1222,11 @@ Array = {
     return false
   end,
   removePairOrderDict = function (t, p)
-    local i = getOrderDictIndex(t, p.Key)
+    local i = getOrderDictIndex(t, p[1])
     if i >= 0 then
-      local v = t[i + 1].Value
+      local v = t[i + 1][2]
       local comparer = EqualityComparer(this.__genericTValue__).getDefault()
-      if comparer:EqualsOf(p.Value, v) then
+      if comparer:EqualsOf(p[2], v) then
         tremove(this, i)
         return true
       end
@@ -1180,7 +1238,7 @@ Array = {
     local i = getOrderDictIndex(t, k)
     if i >= 0 then
       local p = t[i + 1]
-      return true, p.Value
+      return true, p[2]
     end
     return false, t.__genericTValue__:default()
   end,
@@ -1212,7 +1270,7 @@ Array = {
       local comparer = EqualityComparer(t.__genericTValue__).getDefault()
       local equals = comparer.EqualsOf
       for i = 1, len do
-        if equals(comparer, v, t[i].Value) then
+        if equals(comparer, v, t[i][2]) then
           return i - 1
         end
       end
@@ -1262,7 +1320,7 @@ Array = {
   Empty = function (T)
     local t = emptys[T]
     if t == nil then
-      t = Array(T)()
+      t = Array(T){}
       emptys[T] = t
     end
     return t
@@ -1527,8 +1585,32 @@ Array = {
   end
 }
 
-function Array.__call(T, ...)
-  return buildArray(T, select("#", ...), { ... })
+function Array.__call(ArrayT, n, t)
+  if type(n) == "table" then
+    t = n
+  elseif t ~= nil then
+    for i = 1, n  do
+      if t[i] == nil then
+        t[i] = null
+      end
+    end
+  else
+    t = {}
+    if n > 0 then
+      local T = ArrayT.__genericT__
+      local default = T:default()
+      if default == nil then
+        fill(t, 1, n, null)
+      elseif type(default) ~= "table" then
+        fill(t, 1, n, default)
+      else
+        for i = 1, n do
+          t[i] = T:default()
+        end
+      end
+    end
+  end
+  return setmetatable(t, ArrayT)
 end
 
 function System.arrayFromList(t)
