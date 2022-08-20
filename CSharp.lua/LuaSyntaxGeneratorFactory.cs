@@ -1,3 +1,5 @@
+// #define USE_MSBUILD
+
 #nullable enable
 
 using Cake.Incubator.Project;
@@ -14,6 +16,12 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Text.RegularExpressions;
+
+#if USE_MSBUILD
+using Microsoft.Build.Definition;
+using Microsoft.Build.Evaluation;
+using Microsoft.Build.Evaluation.Context;
+#endif
 
 namespace CSharpLua {
   internal static class LuaSyntaxGeneratorFactory {
@@ -55,10 +63,29 @@ namespace CSharpLua {
 
     internal static LuaSyntaxGenerator CreateGeneratorForProject(CompilerSettings settings, LuaSyntaxGenerator.SettingInfo settingInfo) {
       var projectPath = settings.input_;
-      var mainProject = ProjectHelper.ParseProject(projectPath, IsCompileDebug(settings.cscArguments_) ? configurationDebug : configurationRelease);
+      var configuration = IsCompileDebug(settings.cscArguments_) ? configurationDebug : configurationRelease;
+#if USE_MSBUILD
+      MSBuildHelper.SetMsBuildExePath();
+
+      using var projectCollection = new ProjectCollection();
+      var projectOptions = new ProjectOptions {
+        EvaluationContext = EvaluationContext.Create(EvaluationContext.SharingPolicy.Shared),
+        GlobalProperties = new Dictionary<string, string> { { "Configuration", configuration } },
+        LoadSettings = ProjectLoadSettings.Default,
+        ProjectCollection = projectCollection,
+      };
+
+      var mainProject = Project.FromFile(projectPath, projectOptions);
+
+      var projects = MSBuildHelper.FindProjects(mainProject, projectOptions).ToList();
+      var packages = MSBuildHelper.FindPackages(mainProject.GetPropertyValue("TargetFramework"), projects).ToList();
+      var files = MSBuildHelper.GetCompileFiles(projects);
+#else
+      var mainProject = ProjectHelper.ParseProject(projectPath, configuration);
       var projects = mainProject?.EnumerateProjects().ToArray();
       var packages = PackageHelper.EnumeratePackages(mainProject.TargetFrameworkVersions.First(), projects.Select(project => project.project));
       var files = GetProjectsSourceFiles(projects);
+#endif
       var packageBaseFolders = new List<string>();
       if (packages != null) {
         var searchDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -155,9 +182,15 @@ namespace CSharpLua {
       var libs = GetLibs(settings.libs_.Concat(packages.Where(package => !IsDecompile(package, settings)).SelectMany(package => PackageHelper.EnumerateLibs(package))), out var luaModuleLibs);
       settingInfo.LuaModuleLibs = luaModuleLibs.ToHashSet();
 
+#if USE_MSBUILD
+      foreach (var project in projects) {
+        settingInfo.AddBaseFolder(project.DirectoryPath, false);
+      }
+#else
       foreach (var folder in projects.Select(p => p.folder)) {
         settingInfo.AddBaseFolder(folder, false);
       }
+#endif
       foreach (var folder in packageBaseFolders) {
         settingInfo.AddBaseFolder(folder, false);
       }
