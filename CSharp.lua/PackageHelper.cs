@@ -57,6 +57,8 @@ namespace CSharpLua {
   public static class PackageHelper {
     private static readonly string _globalPackagesPath = Path.Combine(NuGetEnvironment.GetFolderPath(NuGetFolderPath.NuGetHome), SettingsUtility.DefaultGlobalPackagesFolderPath);
 
+    internal static string GlobalPackagesPath => _globalPackagesPath;
+
     internal static IEnumerable<NuGetVersion> GetAvailableVersions(string packageName) {
       var packagePath = Path.Combine(_globalPackagesPath, packageName);
       // TODO: run package restore (always or only when directory doesn't exist?)
@@ -132,6 +134,11 @@ namespace CSharpLua {
     }
 
     public static IEnumerable<PackageReferenceModel> EnumeratePackages(string targetFrameworkVersion, IEnumerable<Cake.Incubator.Project.CustomProjectParserResult> projects) {
+      var packageReferences = projects.SelectMany(project => project.PackageReferences.Select(packageReference => (packageReference.Name, VersionRange.Parse(packageReference.Version))));
+      return EnumeratePackages(targetFrameworkVersion, packageReferences);
+    }
+
+    public static IEnumerable<PackageReferenceModel> EnumeratePackages(string targetFrameworkVersion, IEnumerable<(string Id, VersionRange Version)> packageReferences) {
       var targetFramework = NuGetFramework.Parse(targetFrameworkVersion);
       var packages = new Dictionary<string, VersionStatus>();
       void AddPackageReference(string id, VersionRange versionRange) {
@@ -145,8 +152,8 @@ namespace CSharpLua {
           packages.Add(id, new VersionStatus(versionRange));
         }
       }
-      foreach (var package in projects.SelectMany(project => project.PackageReferences)) {
-        AddPackageReference(package.Name, VersionRange.Parse(package.Version));
+      foreach (var package in packageReferences) {
+        AddPackageReference(package.Id, package.Version);
       }
       var newDependencies = new HashSet<PackageIdentity>();
       while (true) {
@@ -195,7 +202,7 @@ namespace CSharpLua {
       }
     }
 
-    private static PackageDependencyGroup GetDependencyGroup(PackageIdentity package, NuGetFramework targetFramework) {
+    internal static PackageDependencyGroup GetDependencyGroup(PackageIdentity package, NuGetFramework targetFramework) {
       var nuspecFile = Path.Combine(_globalPackagesPath, package.Id, package.Version.ToNormalizedString(), $"{package.Id}.nuspec");
       if (!NuGet.Packaging.PackageHelper.IsNuspec(nuspecFile)) {
         throw new PackageException($"Could not locate the .nuspec file for package: {package}");
