@@ -609,6 +609,11 @@ namespace CSharpLua {
       } else if (symbol.Kind == SymbolKind.Field) {
         Contract.Assert(symbol.IsFromAssembly());
         return XmlMetaProvider.GetFieldMetadata(symbol.GetDocumentationCommentId());
+      } else {
+        string xml = symbol.GetDocumentationCommentXml();
+        if (xml != null) {
+          return GetCodeTemplateFromAttributeText(xml);
+        }
       }
       return null;
     }
