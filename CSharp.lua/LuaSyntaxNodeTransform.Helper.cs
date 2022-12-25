@@ -647,6 +647,7 @@ namespace CSharpLua {
       Line,
       Member,
       FilePath,
+      ArgumentExpression,
     }
 
     private CallerAttributeKind GetCallerAttributeKind(INamedTypeSymbol symbol) {
@@ -656,6 +657,7 @@ namespace CSharpLua {
           "CallerLineNumberAttribute" => CallerAttributeKind.Line,
           "CallerMemberNameAttribute" => CallerAttributeKind.Member,
           "CallerFilePathAttribute" => CallerAttributeKind.FilePath,
+          "CallerArgumentExpressionAttribute" => CallerAttributeKind.ArgumentExpression,
           _ => CallerAttributeKind.None
         };
       }
@@ -706,6 +708,11 @@ namespace CSharpLua {
         }
         case CallerAttributeKind.FilePath: {
           return BuildStringLiteralExpression(generator_.RemoveBaseFolder(node.SyntaxTree.FilePath));
+        }
+        case CallerAttributeKind.ArgumentExpression: {
+          var invocation = (InvocationExpressionSyntax)node;
+          var text = invocation.ArgumentList.Arguments.FirstOrDefault()?.ToString() ?? string.Empty;
+          return new LuaStringLiteralExpressionSyntax(text);
         }
         default:
           return null;
