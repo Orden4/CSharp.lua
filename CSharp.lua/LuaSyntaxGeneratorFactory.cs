@@ -148,8 +148,8 @@ namespace CSharpLua {
                     lib,
                     decompilerSettings.ThrowOnAssemblyResolveErrors,
                     peFile.DetectTargetFrameworkId(),
-                    decompilerSettings.LoadInMemory ? PEStreamOptions.PrefetchMetadata : PEStreamOptions.Default,
-                    metadataOptions);
+                    streamOptions: decompilerSettings.LoadInMemory ? PEStreamOptions.PrefetchMetadata : PEStreamOptions.Default,
+                    metadataOptions: metadataOptions);
 
                   foreach (var searchDirectory in searchDirectories) {
                     assemblyResolver.AddSearchDirectory(searchDirectory);
