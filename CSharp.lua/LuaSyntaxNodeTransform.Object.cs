@@ -1217,6 +1217,11 @@ namespace CSharpLua {
     }
 
     public override LuaSyntaxNode VisitConversionOperatorDeclaration(ConversionOperatorDeclarationSyntax node) {
+      var symbol = semanticModel_.GetDeclaredSymbol(node);
+      var codeTemplate = XmlMetaProvider.GetMethodCodeTemplate(symbol);
+      if (codeTemplate != null) {
+        return BuildCodeTemplateExpression(codeTemplate, node.ParameterList.Accept<LuaParameterListSyntax>(this).Parameters);
+      }
       BuildOperatorMethodDeclaration(node);
       return base.VisitConversionOperatorDeclaration(node);
     }

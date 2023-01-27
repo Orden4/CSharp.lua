@@ -41,7 +41,7 @@ namespace CSharpLua.LuaAst {
 
   public sealed class LuaInvocationExpressionSyntax : LuaExpressionSyntax {
     public readonly LuaArgumentListSyntax ArgumentList = new();
-    public LuaExpressionSyntax Expression { get; }
+    public LuaExpressionSyntax Expression { get; set; }
     public List<LuaExpressionSyntax> Arguments => ArgumentList.Arguments;
 
     public LuaInvocationExpressionSyntax(LuaExpressionSyntax expression) {

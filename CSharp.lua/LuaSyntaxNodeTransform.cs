@@ -874,7 +874,7 @@ namespace CSharpLua {
         bool isImmutable = typeSymbol.IsImmutable();
         foreach (var variable in node.Declaration.Variables) {
           var variableSymbol = semanticModel_.GetDeclaredSymbol(variable);
-          if (variableSymbol.IsAbstract) {
+          if (variableSymbol.IsAbstract || variableSymbol.IsExtern || variableSymbol.GetDeclaringSyntaxNode().HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Ignore)) {
             continue;
           }
 
@@ -1035,7 +1035,7 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitPropertyDeclaration(PropertyDeclarationSyntax node) {
       var symbol = semanticModel_.GetDeclaredSymbol(node);
-      if (!symbol.IsAbstract) {
+      if (!symbol.IsAbstract && !symbol.IsExtern && !symbol.GetDeclaringSyntaxNode().HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Ignore)) {
         bool isStatic = symbol.IsStatic;
         bool isPrivate = symbol.IsPrivate() && symbol.ExplicitInterfaceImplementations.IsEmpty;
         bool hasGet = false;
@@ -1151,7 +1151,7 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitEventDeclaration(EventDeclarationSyntax node) {
       var symbol = semanticModel_.GetDeclaredSymbol(node);
-      if (!symbol.IsAbstract) {
+      if (!symbol.IsAbstract && !symbol.IsExtern && !symbol.GetDeclaringSyntaxNode().HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Ignore)) {
         var attributes = BuildAttributes(node.AttributeLists);
         bool isStatic = symbol.IsStatic;
         bool isPrivate = symbol.IsPrivate() && symbol.ExplicitInterfaceImplementations.IsEmpty;
@@ -1208,7 +1208,7 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitIndexerDeclaration(IndexerDeclarationSyntax node) {
       var symbol = semanticModel_.GetDeclaredSymbol(node);
-      if (!symbol.IsAbstract) {
+      if (!symbol.IsAbstract && !symbol.IsExtern && !symbol.GetDeclaringSyntaxNode().HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Ignore)) {
         bool isPrivate = symbol.IsPrivate();
         var indexName = GetMemberName(symbol);
         var parameterList = node.ParameterList.Accept<LuaParameterListSyntax>(this);
@@ -1539,7 +1539,10 @@ namespace CSharpLua {
 
     private LuaExpressionSyntax BuildCommonAssignmentExpression(LuaExpressionSyntax left, LuaExpressionSyntax right, string operatorToken, ExpressionSyntax rightNode, ExpressionSyntax parent) {
       bool isPreventDebugConcatenation = IsPreventDebug && operatorToken == LuaSyntaxNode.Tokens.Concatenation;
-      if (left is LuaPropertyAdapterExpressionSyntax propertyAdapter) {
+      if (left is LuaPropertyTemplateExpressionSyntax propertyTemplate) {
+        var arguments = propertyTemplate.GetArguments(propertyTemplate.GetExpression.Binary(operatorToken, right));
+        return BuildCodeTemplateExpression(propertyTemplate.SetTemplate, arguments);
+      } else if (left is LuaPropertyAdapterExpressionSyntax propertyAdapter) {
         LuaExpressionSyntax expression = null;
         var getter = propertyAdapter.GetCloneOfGet();
         LuaExpressionSyntax leftExpression = getter;
@@ -1589,6 +1592,13 @@ namespace CSharpLua {
     }
 
     private LuaExpressionSyntax BuildDelegateAssignmentExpression(LuaExpressionSyntax left, LuaExpressionSyntax right, bool isPlus) {
+      if (left is LuaPropertyTemplateExpressionSyntax propertyTemplate) {
+        var expr = isPlus
+          ? propertyTemplate.GetExpression.Plus(right)
+          : propertyTemplate.GetExpression.Sub(right);
+        return BuildCodeTemplateExpression(propertyTemplate.SetTemplate, propertyTemplate.GetArguments(expr));
+      }
+
       if (left is LuaPropertyAdapterExpressionSyntax propertyAdapter) {
         if (propertyAdapter.IsProperty) {
           propertyAdapter.ArgumentList.AddArgument(BuildDelegateBinaryExpression(propertyAdapter.GetCloneOfGet(), right, isPlus));
@@ -1604,7 +1614,11 @@ namespace CSharpLua {
     }
 
     private LuaExpressionSyntax BuildBinaryInvokeAssignmentExpression(LuaExpressionSyntax left, LuaExpressionSyntax right, LuaExpressionSyntax methodName) {
-      if (left is LuaPropertyAdapterExpressionSyntax propertyAdapter) {
+      if (left is LuaPropertyTemplateExpressionSyntax propertyTemplate) {
+        var invocation = new LuaInvocationExpressionSyntax(methodName, propertyTemplate.GetExpression, right);
+        var arguments = propertyTemplate.GetArguments(invocation);
+        return BuildCodeTemplateExpression(propertyTemplate.SetTemplate, arguments);
+      } else if (left is LuaPropertyAdapterExpressionSyntax propertyAdapter) {
         var invocation = new LuaInvocationExpressionSyntax(methodName, propertyAdapter.GetCloneOfGet(), right);
         propertyAdapter.ArgumentList.AddArgument(invocation);
         return propertyAdapter;
@@ -1821,7 +1835,10 @@ namespace CSharpLua {
         case SyntaxKind.SimpleAssignmentExpression: {
           var left = leftNode.AcceptExpression(this);
           var right = VisitExpression(rightNode);
-          if (leftNode.Kind().IsTupleDeclaration()) {
+          if (left is LuaPropertyTemplateExpressionSyntax propertyTemplate) {
+              var arguments = propertyTemplate.GetArguments(right);
+              return BuildCodeTemplateExpression(propertyTemplate.SetTemplate, arguments);
+          } else if (leftNode.Kind().IsTupleDeclaration()) {
             if (!rightNode.IsKind(SyntaxKind.TupleExpression)) {
               right = BuildDeconstructExpression(rightNode, right);
             }
@@ -2810,6 +2827,11 @@ namespace CSharpLua {
         var propertySymbol = (IPropertySymbol)symbol;
         isField = IsPropertyField(node, propertySymbol);
         isReadOnly = propertySymbol.IsReadOnly;
+        if (IsPropertyTemplate(propertySymbol)) {
+          var (get, set) = Utility.GetPropertyTemplateFromAttribute(symbol);
+          LuaIdentifierNameSyntax fieldName = GetMemberName(symbol);
+          return new LuaPropertyTemplateExpressionSyntax(get, set);
+        }
       } else {
         var eventSymbol = (IEventSymbol)symbol;
         isField = IsEventField(eventSymbol);
