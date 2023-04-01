@@ -205,19 +205,29 @@ namespace CSharpLua {
       }
     }
 
+    private LuaBlockSyntax GetBlock(int index) {
+      if (index == 0) {
+        return CurBlock;
+      } else {
+        var en = blocks_.GetEnumerator();
+        while (index-- > 0) {
+          en.MoveNext();
+        }
+        return en.Current;
+      }
+    }
+
     private LuaIdentifierNameSyntax GetTempIdentifier() {
       int index = CurFunction.TempCount++;
-      string name = LuaSyntaxNode.TempIdentifiers.GetOrDefault(index);
-      if (name == null) {
-        throw new CompilationErrorException($"Your code is startling,{LuaSyntaxNode.TempIdentifiers.Length} temporary variables is not enough");
-      }
+      string name = LuaSyntaxNode.TempIdentifiers.GetOrDefault(index) ?? $"__temp{index - LuaSyntaxNode.TempIdentifiers.Length}__";
       ++CurBlock.TempCount;
       return name;
     }
 
-    private void ReleaseTempIdentifiers(int prevTempCount) {
+    private void ReleaseTempIdentifiers(int prevTempCount, int prevReleaseCount) {
       int count = CurFunction.TempCount - prevTempCount;
       PopTempCount(count);
+      CurBlock.ReleaseCount = prevReleaseCount;
     }
 
     private void PopTempCount(int count) {
@@ -226,7 +236,7 @@ namespace CSharpLua {
       CurFunction.TempCount -= count;
     }
 
-    private void AddReleaseTempIdentifier(LuaIdentifierNameSyntax tempName) {
+    private void AddReleaseTempIdentifier() {
       CurBlock.ReleaseCount++;
     }
 
@@ -391,13 +401,13 @@ namespace CSharpLua {
 
       CheckRecordParameterCtor(typeSymbol, node, typeDeclaration);
       BuildTypeMembers(typeDeclaration, node);
-      CheckTypeDeclaration(typeSymbol, typeDeclaration, attributes, node);
+      CheckTypeDeclaration(typeSymbol, typeDeclaration, attributes);
   
       typeDeclarations_.Pop();
       CurCompilationUnit.AddTypeDeclarationCount();
     }
 
-    private void CheckTypeDeclaration(INamedTypeSymbol typeSymbol, LuaTypeDeclarationSyntax typeDeclaration, List<LuaExpressionSyntax> attributes, BaseTypeDeclarationSyntax node) {
+    private void CheckTypeDeclaration(INamedTypeSymbol typeSymbol, LuaTypeDeclarationSyntax typeDeclaration, List<LuaExpressionSyntax> attributes) {
       if (typeDeclaration.IsNoneCtors) {
         var baseTypeSymbol = typeSymbol.BaseType;
         if (baseTypeSymbol != null) {
@@ -543,7 +553,7 @@ namespace CSharpLua {
         BuildTypeMembers(major.TypeDeclaration, typeDeclaration.Node);
       }
 
-      CheckTypeDeclaration(major.Symbol, major.TypeDeclaration, attributes, major.Node);
+      CheckTypeDeclaration(major.Symbol, major.TypeDeclaration, attributes);
       typeDeclarations_.Pop();
       compilationUnits_.Pop();
 
@@ -586,7 +596,7 @@ namespace CSharpLua {
         var statement = member.Accept<LuaKeyValueTableItemSyntax>(this);
         enumDeclaration.Add(statement);
       }
-      CheckTypeDeclaration(typeSymbol, enumDeclaration, attributes, node);
+      CheckTypeDeclaration(typeSymbol, enumDeclaration, attributes);
       typeDeclarations_.Pop();
       generator_.AddEnumDeclaration(typeSymbol, enumDeclaration);
     }
@@ -664,7 +674,7 @@ namespace CSharpLua {
       public LuaDocumentStatement Document;
       public List<LuaExpressionSyntax> Attributes;
       public bool IsIgnore => Document is {HasIgnoreAttribute: true};
-      public bool IsMetadata => (Document is {HasMetadataAttribute: true});
+      public bool IsMetadata => Document is {HasMetadataAttribute: true};
     }
 
     private void AddMethodMetaData(MethodDeclarationResult result, bool isMoreThanLocalVariables = false) {
@@ -919,7 +929,7 @@ namespace CSharpLua {
           if (IsLuaClassic && value != null && !isImmutable && isStatic && (isPrivate || isReadOnly)) {
             isMoreThanUpValueStaticInit = IsMoreThanUpValueStaticInitField(variableSymbol);
           }
-          AddField(fieldName, typeSymbol, value, isImmutable, isStatic, isPrivate, isReadOnly, attributes, isMoreThanLocalVariables, isMoreThanUpValueStaticInit);
+          AddField(fieldName, typeSymbol, value, isImmutable, isStatic, isPrivate, isReadOnly, isMoreThanLocalVariables, isMoreThanUpValueStaticInit);
           if (IsCurTypeSerializable || attributes.Count > 0 || variableSymbol.HasMetadataAttribute()) {
             if (variableSymbol.Kind == SymbolKind.Field) {
               AddFieldMetaData((IFieldSymbol)variableSymbol, fieldName, attributes);
@@ -939,10 +949,9 @@ namespace CSharpLua {
             if (v?.Length > kStringConstInlineCount) {
               var variableSymbol = semanticModel_.GetDeclaredSymbol(variable);
               bool isPrivate = generator_.IsPrivate(variableSymbol);
-              var attributes = BuildAttributes(node.AttributeLists);
               var fieldName = GetMemberName(variableSymbol);
               bool isMoreThanLocalVariables = IsMoreThanLocalVariables(variableSymbol);
-              AddField(fieldName, typeSymbol, variable.Initializer.Value, true, true, isPrivate, true, attributes, isMoreThanLocalVariables);
+              AddField(fieldName, typeSymbol, variable.Initializer.Value, true, true, isPrivate, true, isMoreThanLocalVariables);
             }
           }
         }
@@ -988,7 +997,7 @@ namespace CSharpLua {
       return valueExpression;
     }
 
-    private void AddField(LuaIdentifierNameSyntax name, ITypeSymbol typeSymbol, ExpressionSyntax expression, bool isImmutable, bool isStatic, bool isPrivate, bool isReadOnly, List<LuaExpressionSyntax> attributes, bool isMoreThanLocalVariables = false, bool isMoreThanUpValueStaticInit = false) {
+    private void AddField(LuaIdentifierNameSyntax name, ITypeSymbol typeSymbol, ExpressionSyntax expression, bool isImmutable, bool isStatic, bool isPrivate, bool isReadOnly, bool isMoreThanLocalVariables = false, bool isMoreThanUpValueStaticInit = false) {
       var valueExpression = GetFieldValueExpression(typeSymbol, expression, out bool valueIsLiteral, out var statements);
       CurType.AddField(name, valueExpression, isImmutable && valueIsLiteral, isStatic, isPrivate, isReadOnly, statements, isMoreThanLocalVariables, isMoreThanUpValueStaticInit);
     }
@@ -1135,7 +1144,7 @@ namespace CSharpLua {
           bool isField = IsPropertyField(semanticModel_.GetDeclaredSymbol(node));
           if (isField) {
             bool isReadOnly = IsReadOnlyProperty(node);
-            AddField(propertyName, typeSymbol, node.Initializer?.Value, isImmutable, isStatic, isPrivate, isReadOnly, attributes);
+            AddField(propertyName, typeSymbol, node.Initializer?.Value, isImmutable, isStatic, isPrivate, isReadOnly);
           } else {
             var innerName = AddInnerName(symbol);
             var valueExpression = GetFieldValueExpression(typeSymbol, node.Initializer?.Value, out bool valueIsLiteral, out var statements);
@@ -1212,9 +1221,11 @@ namespace CSharpLua {
     public override LuaSyntaxNode VisitEnumMemberDeclaration(EnumMemberDeclarationSyntax node) {
       IFieldSymbol symbol = semanticModel_.GetDeclaredSymbol(node);
       Contract.Assert(symbol.HasConstantValue);
-      var attributes = BuildAttributes(node.AttributeLists);
       LuaIdentifierNameSyntax identifier = node.Identifier.ValueText;
-      AddFieldMetaData(symbol, identifier, attributes);
+      var attributes = BuildAttributes(node.AttributeLists);
+      if (IsCurTypeSerializable || attributes.Count > 0 || CurTypeSymbol.HasMetadataAttribute()) {
+        AddFieldMetaData(symbol, identifier, attributes);
+      }
       var value = new LuaIdentifierLiteralExpressionSyntax(symbol.ConstantValue.ToString());
       return new LuaKeyValueTableItemSyntax(identifier, value);
     }
@@ -4201,17 +4212,17 @@ namespace CSharpLua {
     }
 
     private LuaExpressionSyntax BuildLogicAndBinaryExpression(BinaryExpressionSyntax node) {
+      var temp = GetTempIdentifier();
       var left = VisitExpression(node.Left);
       LuaBlockSyntax rightBody = new LuaBlockSyntax();
       PushBlock(rightBody);
       var right = VisitExpression(node.Right);
+      PopBlock();
       if (rightBody.Statements.Count == 0) {
-        PopBlock();
+        PopTempCount(1);
         return left.And(right);
       }
 
-      var temp = GetTempIdentifier();
-      PopBlock();
       CurBlock.Statements.Add(new LuaLocalVariableDeclaratorSyntax(temp));
       LuaIfStatementSyntax leftIfStatement = new LuaIfStatementSyntax(left);
       CurBlock.Statements.Add(leftIfStatement);
@@ -4443,7 +4454,7 @@ namespace CSharpLua {
             var typeSymbol = semanticModel_.GetTypeInfo(node.Left).Type;
             bool isBool = typeSymbol != null && typeSymbol.IsBoolType();
             if (!isBool) {
-              AddReleaseTempIdentifier(temp);
+              AddReleaseTempIdentifier();
               return left.Binary(GetOperatorToken(node.OperatorToken), right);
             }
           }
@@ -4975,7 +4986,7 @@ namespace CSharpLua {
       PushBlock(body);
       VisitLoopBody(node.Statement, body);
       var condition = VisitExpression(node.Condition);
-      if (condition is LuaBinaryExpressionSyntax) {
+      if (node.Condition is BinaryExpressionSyntax) {
         condition = condition.Parenthesized();
       }
       var newCondition = new LuaPrefixUnaryExpressionSyntax(condition, LuaSyntaxNode.Tokens.Not);

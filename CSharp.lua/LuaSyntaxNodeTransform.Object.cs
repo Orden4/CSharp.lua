@@ -48,6 +48,7 @@ namespace CSharpLua {
 
     private LuaExpressionSyntax GetObjectCreationInitializer(LuaExpressionSyntax creationExpression, InitializerExpressionSyntax initializer, ExpressionSyntax node) {
       int prevTempCount = CurFunction.TempCount;
+      int prevReleaseCount = CurBlock.ReleaseCount;
       var temp = GetTempIdentifier();
       CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(temp, creationExpression));
       FillObjectInitializerExpression(temp, initializer);
@@ -58,7 +59,7 @@ namespace CSharpLua {
           case SyntaxKind.ArrayInitializerExpression:
             break;
           default:
-            ReleaseTempIdentifiers(prevTempCount);
+            ReleaseTempIdentifiers(prevTempCount, prevReleaseCount);
             break;
         }
       }
@@ -774,7 +775,7 @@ namespace CSharpLua {
       return BuildCheckLoopControlInvocationExpression(tryInvocationExpression, tryExpresses);
     }
 
-    private LuaStatementSyntax BuildUsingStatement(SyntaxNode node, List<LuaIdentifierNameSyntax> variableIdentifiers, List<LuaExpressionSyntax> variableExpressions, Action<LuaBlockSyntax> writeStatements) {
+    private LuaStatementSyntax BuildUsingStatement(List<LuaIdentifierNameSyntax> variableIdentifiers, List<LuaExpressionSyntax> variableExpressions, Action<LuaBlockSyntax> writeStatements) {
       var usingAdapterExpress = new LuaUsingAdapterExpressionSyntax();
       usingAdapterExpress.ParameterList.Parameters.AddRange(variableIdentifiers);
       PushFunction(usingAdapterExpress);
@@ -810,7 +811,7 @@ namespace CSharpLua {
         variableExpressions.Add(expression);
       }
 
-      return BuildUsingStatement(node, variableIdentifiers, variableExpressions, body => WriteStatementOrBlock(node.Statement, body));
+      return BuildUsingStatement(variableIdentifiers, variableExpressions, body => WriteStatementOrBlock(node.Statement, body));
     }
 
     private void ApplyUsingDeclarations(LuaBlockSyntax block, List<int> indexes, BlockSyntax node) {
@@ -833,7 +834,7 @@ namespace CSharpLua {
 
       int lastIndex = indexes.Last();
       var statements = block.Statements.Skip(lastIndex + 1);
-      var usingStatement = BuildUsingStatement(node, variableIdentifiers, variableExpressions, body => body.Statements.AddRange(statements));
+      var usingStatement = BuildUsingStatement(variableIdentifiers, variableExpressions, body => body.Statements.AddRange(statements));
       block.Statements.RemoveRange(indexes[position]);
       block.AddStatement(usingStatement);
       indexes.RemoveRange(position);
@@ -959,7 +960,7 @@ namespace CSharpLua {
 
       if (isRoot) {
         conditionalTemps_.Pop();
-        AddReleaseTempIdentifier(temp);
+        AddReleaseTempIdentifier();
       }
 
       if (IsReturnVoidConditionalAccessExpression(node)) {
@@ -1178,8 +1179,7 @@ namespace CSharpLua {
       }
 
       if (expressions.Count == 1) {
-        LuaIdentifierNameSyntax empty = "";
-        expressions.Add(empty);
+        expressions.Add(LuaIdentifierNameSyntax.Empty);
       }
 
       var resultExpression = (LuaExpressionSyntax)expressions.Aggregate(ConcatInterpolatedString);
@@ -1381,8 +1381,15 @@ namespace CSharpLua {
         }
         case SyntaxKind.DeclarationPattern: {
           var declarationPattern = (DeclarationPatternSyntax)pattern;
+          int count = declarationPattern.GetIsDeclarationInBinaryCount();
           var name = declarationPattern.Designation.Accept<LuaIdentifierNameSyntax>(this);
-          CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(name, targetExpression));
+          if (count == 0) {
+            CurBlock.AddStatement(new LuaLocalVariableDeclaratorSyntax(name, targetExpression));
+          } else {
+            var block = GetBlock(count + 1);
+            block.AddStatement(new LuaLocalVariableDeclaratorSyntax(name));
+            CurBlock.AddStatement(name.Assignment(targetExpression));
+          }
           return BuildIsPatternExpression(targetNode, declarationPattern.Type, name);
         }
         case SyntaxKind.NotPattern: {
