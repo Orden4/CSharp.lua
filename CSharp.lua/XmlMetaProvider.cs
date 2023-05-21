@@ -275,8 +275,8 @@ namespace CSharpLua {
       var rootElementName = GetXmlRootElementName(xmlFileStream);
       xmlFileStream.Position = 0;
       switch (rootElementName) {
-        case "meta": DeserializeXmlMetaFile(xmlFileStream); break;
-        case "doc": DeserializeXmlDocFile(xmlFileStream); break;
+        case "meta": DeserializeXmlMetaFile(xmlFileStream, ignoreDuplicate: false); break;
+        case "doc": DeserializeXmlDocFile(xmlFileStream, ignoreDuplicate: true); break;
         default: throw new InvalidOperationException($"Xml root <{rootElementName}> was not expected.");
       }
     }
@@ -294,7 +294,7 @@ namespace CSharpLua {
       return null;
     }
 
-    private void DeserializeXmlMetaFile(Stream metaFileStream) {
+    private void DeserializeXmlMetaFile(Stream metaFileStream, bool ignoreDuplicate) {
       var serializer = new XmlSerializer(typeof(XmlMetaModel));
       try {
         XmlMetaModel model = (XmlMetaModel)serializer.Deserialize(metaFileStream);
@@ -302,11 +302,11 @@ namespace CSharpLua {
         if (assembly != null) {
           if (assembly.Namespaces != null) {
             foreach (var namespaceModel in assembly.Namespaces) {
-              LoadNamespace(namespaceModel);
+              LoadNamespace(namespaceModel, ignoreDuplicate);
             }
           }
           if (assembly.Classes != null) {
-            LoadType(string.Empty, assembly.Classes);
+            LoadType(string.Empty, assembly.Classes, ignoreDuplicate);
           }
         }
       } catch (Exception e) {
@@ -314,7 +314,7 @@ namespace CSharpLua {
       }
     }
 
-    private void DeserializeXmlDocFile(Stream docFileStream) {
+    private void DeserializeXmlDocFile(Stream docFileStream, bool ignoreDuplicate) {
       var serializer = new XmlSerializer(typeof(doc));
       try {
         doc model = (doc)serializer.Deserialize(docFileStream);
@@ -364,7 +364,7 @@ namespace CSharpLua {
             case 'F':
               var field = new XmlMetaModel.FieldModel();
               field.name = GetShortName(fullName);
-              field.Template = Utility.TryGetCodeTemplateFromAttributeText(member.node.FirstOrDefault()?.InnerText);
+              field.Template = Utility.TryGetCodeTemplateFromAttributeText(member.node?.FirstOrDefault()?.InnerText);
               fieldMetadata_.Add(member.name, field.Template);
               var container = GetContainer(fullName);
               TryAddClass(container);
@@ -376,7 +376,7 @@ namespace CSharpLua {
             case 'M':
               var method = new XmlMetaModel.MethodModel();
               method.name = GetShortName(fullName);
-              method.Template = Utility.TryGetCodeTemplateFromAttributeText(member.node.FirstOrDefault()?.InnerText);
+              method.Template = Utility.TryGetCodeTemplateFromAttributeText(member.node?.FirstOrDefault()?.InnerText);
               method.ArgCount = parameters?.Length ?? -1;
               if (method.ArgCount > 0) {
                 method.Args = parameters.Select(param => {
@@ -407,7 +407,7 @@ namespace CSharpLua {
             classModel.Methods = methods[fullName].ToArray();
           }
           namespaceModel.Classes = classes[namespaceName].ToArray();
-          LoadNamespace(namespaceModel);
+          LoadNamespace(namespaceModel, ignoreDuplicate);
         }
         /*foreach (var className in classes.Keys) {
           var @class = classes[className];
@@ -428,11 +428,13 @@ namespace CSharpLua {
       switch (type) {
         case 'T':
         case 'F':
+        case 'E':
           fullyQualifiedName = name;
           parameters = null;
           break;
 
         case 'M':
+        case 'P':
           var split = name.Split('(');
           if (split.Length == 1) {
             fullyQualifiedName = name;
@@ -460,7 +462,7 @@ namespace CSharpLua {
       return name.Split('.').Last();
     }
 
-    private void LoadNamespace(XmlMetaModel.NamespaceModel model) {
+    private void LoadNamespace(XmlMetaModel.NamespaceModel model, bool ignoreDuplicate) {
       string namespaceName = model.name;
       if (namespaceName == null) {
         throw new ArgumentException("namespace.name is null");
@@ -468,7 +470,11 @@ namespace CSharpLua {
 
       if (namespaceName.Length > 0) {
         if (namespaceNameMaps_.ContainsKey(namespaceName)) {
-          throw new ArgumentException($"namespace [{namespaceName}] is already has");
+          if (ignoreDuplicate) {
+            return;
+          } else {
+            throw new ArgumentException($"namespace [{namespaceName}] is already has");
+          }
         }
         if (!string.IsNullOrEmpty(model.Name) || model.IsBaned) {
           namespaceNameMaps_.Add(namespaceName, model);
@@ -477,17 +483,17 @@ namespace CSharpLua {
 
       if (model.Classes != null) {
         string name = !string.IsNullOrEmpty(model.Name) ? model.Name : namespaceName;
-        LoadType(name, model.Classes);
+        LoadType(name, model.Classes, ignoreDuplicate);
       }
     }
 
-    private void LoadType(string namespaceName, XmlMetaModel.ClassModel[] classes) {
+    private void LoadType(string namespaceName, XmlMetaModel.ClassModel[] classes, bool ignoreDuplicate) {
       foreach (var classModel in classes) {
-        LoadType(namespaceName, classModel);
+        LoadType(namespaceName, classModel, ignoreDuplicate);
       }
     }
 
-    private void LoadType(string namespaceName, XmlMetaModel.ClassModel classModel) {
+    private void LoadType(string namespaceName, XmlMetaModel.ClassModel classModel, bool ignoreDuplicate) {
       string className = classModel.name;
       if (string.IsNullOrEmpty(className)) {
         throw new ArgumentException($"namespace [{namespaceName}] has a class's name is empty");
@@ -496,7 +502,11 @@ namespace CSharpLua {
       string classesFullName = namespaceName.Length > 0 ? namespaceName + '.' + className : className;
       classesFullName = classesFullName.Replace('`', '_');
       if (typeMetas_.ContainsKey(classesFullName)) {
-        throw new ArgumentException($"type [{classesFullName}] is already has");
+        if (ignoreDuplicate) {
+          return;
+        } else {
+          throw new ArgumentException($"type [{classesFullName}] is already has");
+        }
       }
       TypeMetaInfo info = new TypeMetaInfo(classModel);
       typeMetas_.Add(classesFullName, info);
