@@ -1831,7 +1831,7 @@ namespace CSharpLua {
       });
     }
 
-    internal bool IsMorenThanUpValueStaticCtorField(ISymbol symbol) {
+    internal bool IsMoreThanUpValueStaticCtorField(ISymbol symbol) {
       if (IsStaticCtorField(symbol)) {
         var definitionType = symbol.ContainingType.OriginalDefinition;
         var set = isMoreThanUpValueStaticFields_.GetOrAdd(definitionType, definitionType => {

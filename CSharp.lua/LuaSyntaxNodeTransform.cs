@@ -1342,11 +1342,11 @@ namespace CSharpLua {
         return statement;
       }
 
-      public LuaSyntaxNode Visit(LuaSyntaxNodeTransform transfor) {
+      public LuaSyntaxNode Visit(LuaSyntaxNodeTransform transform) {
         const int kCommentCharCount = 2;
         if (SyntaxNode != null) {
           try {
-            var node = SyntaxNode.Accept(transfor);
+            var node = SyntaxNode.Accept(transform);
             return node ?? throw new InvalidOperationException();
           } catch (CompilationErrorException e) {
             throw e.With(SyntaxNode);
@@ -2758,7 +2758,7 @@ namespace CSharpLua {
           if (node.Parent.IsKind(SyntaxKind.SimpleAssignmentExpression)) {
             var assignmentExpression = (AssignmentExpressionSyntax)node.Parent;
             if (assignmentExpression.Left == node) {
-              CurType.AddStaticReadOnlyAssignmentName(name, generator_.IsMorenThanUpValueStaticCtorField(symbol));
+              CurType.AddStaticReadOnlyAssignmentName(name, generator_.IsMoreThanUpValueStaticCtorField(symbol));
             }
           }
           if (CheckUsingStaticNameSyntax(symbol, node, name, out var newExpression)) {
@@ -2788,7 +2788,7 @@ namespace CSharpLua {
         }
       }
 
-      if (IsInternalNode(node) && generator_.IsMorenThanUpValueStaticCtorField(symbol)) {
+      if (IsInternalNode(node) && generator_.IsMoreThanUpValueStaticCtorField(symbol)) {
         return LuaIdentifierNameSyntax.MoreManyLocalVarTempTable.MemberAccess(name);
       }
 
