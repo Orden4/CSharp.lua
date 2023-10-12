@@ -85,7 +85,19 @@
       <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
       <Pack>true</Pack>
     </Content>
+    <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Collections\PriorityQueue.lua" Link="CoreSystem\Collections\PriorityQueue.lua">
+      <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
+      <Pack>true</Pack>
+    </Content>
     <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Collections\Queue.lua" Link="CoreSystem\Collections\Queue.lua">
+      <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
+      <Pack>true</Pack>
+    </Content>
+    <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Collections\SortedDictionary.lua" Link="CoreSystem\Collections\SortedDictionary.lua">
+      <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
+      <Pack>true</Pack>
+    </Content>
+    <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Collections\SortedList.lua" Link="CoreSystem\Collections\SortedList.lua">
       <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
       <Pack>true</Pack>
     </Content>
