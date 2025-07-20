@@ -36,8 +36,7 @@ namespace NuGetPusher
 
 		private string GetVersion(string project)
 		{
-			var props = Path.Combine(new DirectoryInfo(this.appSettings.PackageDirectory).Parent!.Parent!.FullName, "Directory.Build.props");
-			var doc = XDocument.Load(props);
+			var doc = XDocument.Load("Directory.Build.props");
 			var version = doc.Descendants(project.Replace("WCSharp.", "").Replace(".", "") + "Version").SingleOrDefault();
 			if (version != null && !string.IsNullOrEmpty(version.Value))
 			{
