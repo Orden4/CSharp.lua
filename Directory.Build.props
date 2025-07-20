@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
     <CSharpLuaVersion>6.0.0</CSharpLuaVersion>
-    <CSharpLuaCoreSystemVersion>6.0.0</CSharpLuaCoreSystemVersion>
+    <CSharpLuaCoreSystemVersion>6.0.1</CSharpLuaCoreSystemVersion>
   </PropertyGroup>
 </Project>

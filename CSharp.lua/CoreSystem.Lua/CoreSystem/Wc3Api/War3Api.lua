@@ -1,7 +1,19 @@
 local define = System.defStc
 local setmetatable = setmetatable
 
+local function equalsHandle(a, b)
+    return a == b
+end
+
 local handle = define("War3Api.Common.handle", {
+  default = function()
+    return nil
+  end,
+  GetHashCode = function (t)
+    return tonumber("0x" .. ssub(tostring(t), 8))
+  end,
+  Equals = equalsHandle,
+  EqualsOrb = equalsHandle
 })
 local agent = define("War3Api.Common.agent", {
   base = { handle }
