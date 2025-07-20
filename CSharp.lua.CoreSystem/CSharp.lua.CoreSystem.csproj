@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Owners>Drake53</Owners>
+    <Owners>Orden</Owners>
     <Copyright>Copyright © YANG Huan 2017</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
@@ -19,21 +19,19 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
-    <RepositoryUrl>https://github.com/Drake53/CSharp.lua</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Orden4/CSharp.lua</RepositoryUrl>
   </PropertyGroup>
 
   <PropertyGroup>
-    <Authors>YANG Huan, Drake53</Authors>
+    <Authors>YANG Huan, Drake53, Orden</Authors>
 
-    <Description>The lua system files for Csharp.lua.</Description>
-    <PackageProjectUrl>https://github.com/Drake53/CSharp.lua/tree/master/CSharp.lua.CoreSystem</PackageProjectUrl>
+    <Description>The lua system files for CSharp.lua.</Description>
+    <PackageProjectUrl>https://github.com/Orden4/CSharp.lua</PackageProjectUrl>
     <PackageTags>csharp lua compiler transpiler warcraft3 warcraft-iii</PackageTags>
     <PackageReleaseNotes></PackageReleaseNotes>
 
-    <PackageId>War3Net.CSharpLua.CoreSystem</PackageId>
-    <Version>2.0.0</Version>
-    <FileVersion>2.0.0</FileVersion>
-    <AssemblyVersion>2.0</AssemblyVersion>
+    <PackageId>WCSharp.CSharpLua.CoreSystem</PackageId>
+    <Version>$(CSharpluaCoreSystemVersion)</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -157,6 +155,10 @@
       <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
       <Pack>true</Pack>
     </Content>
+    <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\MemoryExtensions.lua" Link="CoreSystem\MemoryExtensions.lua">
+      <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
+      <Pack>true</Pack>
+    </Content>
     <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Number.lua" Link="CoreSystem\Number.lua">
       <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
       <Pack>true</Pack>
@@ -185,6 +187,10 @@
       <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
       <Pack>true</Pack>
     </Content>
+    <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Numerics\Vector.lua" Link="CoreSystem\Numerics\Vector.lua">
+      <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
+      <Pack>true</Pack>
+    </Content>
     <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Numerics\Vector2.lua" Link="CoreSystem\Numerics\Vector2.lua">
       <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
       <Pack>true</Pack>
@@ -201,7 +207,15 @@
       <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
       <Pack>true</Pack>
     </Content>
+    <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\ReadOnlySpan.lua" Link="CoreSystem\ReadOnlySpan.lua">
+      <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
+      <Pack>true</Pack>
+    </Content>
     <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Reflection\Assembly.lua" Link="CoreSystem\Reflection\Assembly.lua">
+      <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
+      <Pack>true</Pack>
+    </Content>
+    <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Span.lua" Link="CoreSystem\Span.lua">
       <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
       <Pack>true</Pack>
     </Content>

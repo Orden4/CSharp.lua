@@ -1,0 +1,34 @@
+name: Publish NuGet Package
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    name: Build and publish to NuGet
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build projects
+        run: dotnet build --configuration Release --no-restore --property WarningLevel=0
+
+      - name: Pack projects
+        run: dotnet pack --configuration Release --no-build -o out
+
+      - name: Push to NuGet
+        run: dotnet run --project ./Tools.NuGetPusher/Tools.NuGetPusher.csproj -- --ApiKey ${{ secrets.NUGET_API_KEY }} --PackageDirectory out

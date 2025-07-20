@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <CSharpluaVersion>6.0.0-rc1</CSharpluaVersion>
+    <CSharpluaCoreSystemVersion>6.0.0-rc1</CSharpluaCoreSystemVersion>
+  </PropertyGroup>
+</Project>
