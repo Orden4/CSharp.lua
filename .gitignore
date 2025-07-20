@@ -254,3 +254,4 @@ test/**/out/**/*.lua
 /CSharp.lua/Properties/launchSettings.json
 /CSharp.lua.Launcher/Properties/launchSettings.json
 /download/*.zip
+/CSharp.lua.Tests/Output

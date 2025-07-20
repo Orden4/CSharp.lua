@@ -31,6 +31,7 @@ namespace CSharpLua.LuaAst {
   public class LuaFunctionExpressionSyntax : LuaExpressionSyntax {
     public readonly LuaParameterListSyntax ParameterList = new();
     public string FunctionKeyword => Keyword.Function;
+    public bool RenderAsFunctionDefinition;
     public int TempCount;
 
     public readonly LuaBlockSyntax Body = new() {

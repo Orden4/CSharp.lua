@@ -14,16 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+using CSharpLua.LuaAst;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.Contracts;
 using System.Linq;
-
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis;
-using CSharpLua.LuaAst;
 
 namespace CSharpLua {
   public sealed partial class LuaSyntaxNodeTransform : CSharpSyntaxVisitor<LuaSyntaxNode> {
@@ -2266,7 +2265,7 @@ namespace CSharpLua {
 
       if (symbol.Parameters.Length > argumentList.Arguments.Count) {
         argumentExpressions.AddRange(symbol.Parameters.Skip(argumentList.Arguments.Count).Where(i => !i.IsParams).Select(i => {
-          var func = LuaExpressionSyntax () => GetDefaultParameterValue(i, argumentList.Parent, true);
+          Func<LuaExpressionSyntax> func = () => GetDefaultParameterValue(i, argumentList.Parent, true);
           return func;
         }));
       }
@@ -2298,6 +2297,16 @@ namespace CSharpLua {
               CurCompilationUnit.ImportLinq();
             }
           }
+#if false
+          else if (!symbol.IsStatic) {
+            if (memberAccessExpression != null) {
+              argumentExpressions.Add(() => memberAccessExpression.Expression.AcceptExpression(this));
+            } else {
+              Contract.Assert(kind == SyntaxKind.MemberBindingExpression);
+              argumentExpressions.Add(() => conditionalTemps_.Peek());
+            }
+          }
+#endif
 
           FillCodeTemplateInvocationArguments(symbol, node.ArgumentList, argumentExpressions);
           var invocationExpression = InternalBuildCodeTemplateExpression(
@@ -2371,6 +2380,14 @@ namespace CSharpLua {
           }
         } else {
           invocation = new LuaInvocationExpressionSyntax(expression);
+          /*if (symbol.ReducedFrom != null && symbol.HasAttribute<NativeLuaMemberAttribute>(out _)) {
+            // invocation.AddArgument(((node.Expression as MemberAccessExpressionSyntax).Expression as IdentifierNameSyntax).Identifier.ValueText);
+            // TODO: replace hacky solution that makes incorrect assumptions
+            var thisArgument = new LuaMemberAccessExpressionSyntax(
+              LuaIdentifierNameSyntax.This,
+              ((node.Expression as MemberAccessExpressionSyntax).Expression as IdentifierNameSyntax).Identifier.ValueText);
+            invocation.AddArgument(thisArgument);
+          }*/
         }
       } else {
         if (expression is LuaMemberAccessExpressionSyntax memberAccess) {
@@ -3601,11 +3618,11 @@ namespace CSharpLua {
     public override LuaSyntaxNode VisitVariableDeclarator(VariableDeclaratorSyntax node) {
       LuaIdentifierNameSyntax identifier = node.Identifier.ValueText;
       CheckLocalVariableName(ref identifier, node);
-      var variable = new LuaVariableDeclaratorSyntax(identifier);
+      var variableDeclarator = new LuaVariableDeclaratorSyntax(identifier);
       if (node.Initializer != null) {
-        variable.Initializer = node.Initializer.Accept<LuaEqualsValueClauseSyntax>(this);
+        variableDeclarator.Initializer = node.Initializer.Accept<LuaEqualsValueClauseSyntax>(this);
       }
-      return variable;
+      return variableDeclarator;
     }
 
     public override LuaSyntaxNode VisitEqualsValueClause(EqualsValueClauseSyntax node) {

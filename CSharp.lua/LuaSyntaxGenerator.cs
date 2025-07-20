@@ -21,6 +21,7 @@ using System.Collections.Immutable;
 using System.Diagnostics.Contracts;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -58,7 +59,11 @@ namespace CSharpLua {
       public string IndentString { get; private set; }
       public bool IsClassic { get; set; }
       public bool IsExportMetadata { get; set; }
-      public string BaseFolder { get; set; } = "";
+      [Obsolete]
+      public string BaseFolder {
+        get => BaseFolders.SingleOrDefault() ?? string.Empty;
+        set { BaseFolders.Clear(); AddBaseFolder(value, false); } }
+      internal HashSet<string> BaseFolders { get; private set; }
       public bool IsExportAttributesAll { get; private set; }
       public bool IsExportEnumAll { get; private set; }
       public bool IsModule { get; set; }
@@ -67,11 +72,13 @@ namespace CSharpLua {
       public HashSet<string> LuaModuleLibs;
       public bool IsInlineSimpleProperty { get; set; }
       public bool IsPreventDebugObject { get; set; }
+      public bool IsCommentsDisabled { get; set; }
       public bool IsNotConstantForEnum { get; set; }
       public bool IsNoConcurrent { get; set; }
 
       public SettingInfo() {
         Indent = 2;
+        BaseFolders = new HashSet<string>();
       }
 
       public string[] Attributes {
@@ -97,19 +104,62 @@ namespace CSharpLua {
           }
         }
       }
-
+      
       public int Indent {
         get {
           return indent_;
         }
         set {
-          if (value > 0 && indent_ != value) {
+          if (indent_ != value) {
             indent_ = value;
-            IndentString = new string(' ', indent_);
+            IndentString = value > 0 ? new string(' ', indent_) : string.Empty;
           }
         }
       }
+
+      public void AddBaseFolder(string path, bool overwriteSubFolders) {
+        var remove = new List<string>();
+        path = new FileInfo(path).FullName.TrimEnd(Path.DirectorySeparatorChar);
+        static bool ConflictsWith(string folder, string other) {
+          return folder == other || folder.StartsWith(other + Path.DirectorySeparatorChar);
+        }
+        foreach (var other in BaseFolders) {
+          if (ConflictsWith(path, other)) {
+            if (overwriteSubFolders) {
+              return;
+            } else {
+              throw new Exception($"Could not add folder \"{path}\", because it is the same as, or a subdirectory of, an already added folder.");
+            }
+          }
+          if (ConflictsWith(other, path)) {
+            if (overwriteSubFolders) {
+              remove.Add(other);
+            } else { 
+              throw new Exception($"Could not add folder \"{path}\", because one of its subdirectories has already been added.");
+            }
+          }
+        }
+        foreach (var other in remove) {
+          BaseFolders.Remove(other);
+        }
+        BaseFolders.Add(path);
+      }
+
+      public string GetBaseFolder(ref string path) {
+        if (BaseFolders.Count == 0) {
+          return null;
+        }
+        path = new FileInfo(path).FullName;
+        foreach (var baseFolder in BaseFolders) {
+          if (path.StartsWith(baseFolder + Path.DirectorySeparatorChar)) {
+            return baseFolder;
+          }
+        }
+        throw new DirectoryNotFoundException($"Could not find base folder for path: \"{path}\".");
+      }
     }
+
+    public const string kManifestFuncName = "InitCSharp";
 
     private const string kLuaSuffix = ".lua";
     private static readonly Encoding Encoding = new UTF8Encoding(false);
@@ -124,6 +174,7 @@ namespace CSharpLua {
     private readonly ConcurrentHashSet<ISymbol> forcePublicSymbols_ = new(SymbolEqualityComparer.Default);
     private readonly ConcurrentList<LuaEnumDeclarationSyntax> enumDeclarations_ = new();
     private readonly ConcurrentDictionary<INamedTypeSymbol, ConcurrentList<PartialTypeDeclaration>> partialTypes_ = new(SymbolEqualityComparer.Default);
+    private readonly ImmutableList<string> fileBanner_;
     private readonly ImmutableHashSet<string> monoBehaviourSpecialMethodNames_;
     private ImmutableList<LuaExpressionSyntax> assemblyAttributes_ = ImmutableList<LuaExpressionSyntax>.Empty;
     private readonly ConcurrentDictionary<INamedTypeSymbol, ConcurrentHashSet<INamedTypeSymbol>> genericImportDepends_ = new(SymbolEqualityComparer.Default);
@@ -163,17 +214,16 @@ namespace CSharpLua {
     }
 
     private (CSharpCompilation, CSharpCommandLineArguments) BuildCompilation(IEnumerable<(string Text, string Path)> codes, IEnumerable<Stream> libs, IEnumerable<string> cscArguments) {
-      var commandLineArguments = CSharpCommandLineParser.Default.Parse((cscArguments ?? Array.Empty<string>()).Concat(new [] { "-define:__CSharpLua__" }), null, null);
+      var commandLineArguments = CSharpCommandLineParser.Default.Parse((cscArguments ?? Array.Empty<string>()).Concat(new[] { "-define:__CSharpLua__" }), null, null);
       var parseOptions = commandLineArguments.ParseOptions.WithLanguageVersion(LanguageVersion.Preview).WithDocumentationMode(DocumentationMode.Parse);
       var syntaxTrees = BuildSyntaxTrees(codes, parseOptions);
       var references = libs.Select(LoadLib).ToList();
       var compilation = CSharpCompilation.Create("_", syntaxTrees, references, WithOptions(commandLineArguments.CompilationOptions));
-      MemoryStream ms = new MemoryStream(); 
-      EmitResult result = compilation.Emit(ms);
-      if (!result.Success) {
-        var errors = result.Diagnostics.Where(i => i.Severity == DiagnosticSeverity.Error);
-        string message = string.Join("\n", errors);
-        throw new CompilationErrorException(message);
+      using (MemoryStream ms = new MemoryStream()) {
+        EmitResult result = compilation.Emit(ms);
+        if (!result.Success) {
+          throw new CompilationErrorException(result);
+        }
       }
       return (compilation, commandLineArguments);
     }
@@ -195,16 +245,19 @@ namespace CSharpLua {
       return paths.Select(i => new FileStream(i, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
     }
 
-    public LuaSyntaxGenerator(IEnumerable<(string Text, string Path)> codes, IEnumerable<string> libs, IEnumerable<string> cscArguments, IEnumerable<string> metas, SettingInfo setting)
-      : this(codes, ToFileStreams(libs), cscArguments, ToFileStreams(metas), setting) {
+    public LuaSyntaxGenerator(IEnumerable<(string Text, string Path)> codes, IEnumerable<string> libs, IEnumerable<string> cscArguments, IEnumerable<string> metas, SettingInfo setting, IEnumerable<string> fileBannerLines = null)
+      : this(codes, ToFileStreams(libs), cscArguments, ToFileStreams(metas), setting, fileBannerLines) {
     }
 
-    public LuaSyntaxGenerator(IEnumerable<(string Text, string Path)> codes, IEnumerable<Stream> libs, IEnumerable<string> cscArguments, IEnumerable<Stream> metas, SettingInfo setting) {
+    public LuaSyntaxGenerator(IEnumerable<(string Text, string Path)> codes, IEnumerable<Stream> libs, IEnumerable<string> cscArguments, IEnumerable<Stream> metas, SettingInfo setting, IEnumerable<string> fileBannerLines = null) {
       Setting = setting;
       (compilation_, CommandLineArguments) = BuildCompilation(codes, libs, cscArguments);
       XmlMetaProvider = new XmlMetaProvider(metas);
       if (Setting.ExportEnums != null) {
         exportEnums_.UnionWith(Setting.ExportEnums);
+      }
+      if (fileBannerLines != null) {
+        fileBanner_ = fileBannerLines.ToImmutableList();
       }
       SystemExceptionTypeSymbol = compilation_.GetTypeByMetadataName("System.Exception");
       if (compilation_.ReferencedAssemblyNames.Any(i => i.Name.Contains("UnityEngine"))) {
@@ -284,9 +337,21 @@ namespace CSharpLua {
       ExportManifestFile(modules, outFolder);
     }
 
-    public void GenerateSingleFile(string outFile, string outFolder, IEnumerable<string> luaSystemLibs) {
+    public void GenerateSingleFile(Stream target, IEnumerable<string> luaSystemLibs, bool manifestAsFunction = true) {
+      using var streamWriter = new StreamWriter(target, Encoding, 1024, true);
+      GenerateSingleFile(streamWriter, luaSystemLibs, manifestAsFunction);
+    }
+
+    public void GenerateSingleFile(string outFile, string outFolder, IEnumerable<string> luaSystemLibs, bool manifestAsFunction = true) {
       outFile = GetOutFileRelativePath(outFile, outFolder, out _);
       using var streamWriter = new StreamWriter(outFile, false, Encoding);
+      GenerateSingleFile(streamWriter, luaSystemLibs, manifestAsFunction);
+    }
+
+    private void GenerateSingleFile(StreamWriter streamWriter, IEnumerable<string> luaSystemLibs, bool manifestAsFunction) {
+      if (!Setting.IsCommentsDisabled) {
+        WriteFileBanner(streamWriter);
+      }
       streamWriter.WriteLine("CSharpLuaSingleFile = true");
       bool isFirst = true;
       foreach (var luaSystemLib in luaSystemLibs) {
@@ -294,12 +359,40 @@ namespace CSharpLua {
         isFirst = false;
       }
       streamWriter.WriteLine();
-      streamWriter.WriteLine(LuaSyntaxNode.Tokens.ShortComment + LuaCompilationUnitSyntax.GeneratedMarkString);
+	  if (!Setting.IsCommentsDisabled) {
+        streamWriter.WriteLine(LuaSyntaxNode.Tokens.ShortComment + LuaCompilationUnitSyntax.GeneratedMarkString);
+	  }
       var compilationUnits = Create(true).OrderBy(i => Path.GetFileName(i.FilePath));
       foreach (var luaCompilationUnit in compilationUnits) {
         WriteCompilationUnit(luaCompilationUnit, streamWriter);
       }
-      WriteSingleFileManifest(streamWriter);
+      if (mainEntryPoint_ is null) {
+        throw new CompilationErrorException("Program has no main entry point.");
+      }
+      WriteSingleFileManifest(streamWriter, manifestAsFunction);
+    }
+
+    private void WriteFileBanner(TextWriter writer) {
+      if (fileBanner_ != null && fileBanner_.Count > 0) {
+        foreach (var line in fileBanner_) {
+          writer.WriteLine($"{LuaSyntaxNode.Tokens.ShortComment} {line}");
+        }
+        writer.WriteLine();
+      }
+    }
+
+    private void WriteLuaSystemLib(string filePath, TextWriter writer, bool isFirst) {
+      writer.WriteLine();
+      if (!Setting.IsCommentsDisabled) {
+        writer.WriteLine($"-- CoreSystemLib: {GetSystemLibName(filePath)}");
+      }
+      writer.WriteLine(LuaSyntaxNode.Keyword.Do);
+      string code = File.ReadAllText(filePath);
+      if (!isFirst) {
+        RemoveLicenseComments(ref code);
+      }
+      writer.WriteLine(code);
+      writer.WriteLine(LuaSyntaxNode.Keyword.End);
     }
 
     private static string GetSystemLibName(string path) {
@@ -322,18 +415,6 @@ namespace CSharpLua {
       }
     }
 
-    private static void WriteLuaSystemLib(string filePath, TextWriter writer, bool isFirst) {
-      writer.WriteLine();
-      writer.WriteLine("-- CoreSystemLib: {0}", GetSystemLibName(filePath));
-      writer.WriteLine(LuaSyntaxNode.Keyword.Do);
-      string code = File.ReadAllText(filePath);
-      if (!isFirst) {
-        RemoveLicenseComments(ref code);
-      }
-      writer.WriteLine(code);
-      writer.WriteLine(LuaSyntaxNode.Keyword.End);
-    }
-
     private void WriteCompilationUnit(LuaCompilationUnitSyntax luaCompilationUnit, TextWriter writer) {
       writer.WriteLine(LuaSyntaxNode.Keyword.Do);
       Write(luaCompilationUnit, writer);
@@ -341,20 +422,33 @@ namespace CSharpLua {
       writer.WriteLine(LuaSyntaxNode.Keyword.End);
     }
 
-    private void WriteSingleFileManifest(TextWriter writer) {
+    private void WriteSingleFileManifest(TextWriter writer, bool manifestAsFunction) {
       var types = GetExportTypes();
       if (types.Count > 0) {
         LuaTableExpression typeTable = new LuaTableExpression();
         typeTable.Add("types", new LuaTableExpression(types.Select(i => new LuaStringLiteralExpressionSyntax(GetTypeShortName(i)))));
-        LuaCompilationUnitSyntax luaCompilationUnit = new LuaCompilationUnitSyntax(hasGeneratedMark: false);
-        luaCompilationUnit.AddStatement(LuaIdentifierNameSyntax.SystemInit.Invocation(typeTable));
+        var manifestStatements = new List<LuaStatementSyntax>();
+        manifestStatements.Add(LuaIdentifierNameSyntax.SystemInit.Invocation(typeTable));
         if (mainEntryPoint_ != null) {
-          luaCompilationUnit.AddStatement(LuaBlankLinesStatement.One);
+          manifestStatements.Add(LuaBlankLinesStatement.One);
           var methodName = mainEntryPoint_.Name;
           var methodTypeName = GetTypeName(mainEntryPoint_.ContainingType);
           var entryPointInvocation = new LuaInvocationExpressionSyntax(methodTypeName.MemberAccess(methodName));
-          luaCompilationUnit.AddStatement(entryPointInvocation);
+          manifestStatements.Add(entryPointInvocation);
         }
+        LuaCompilationUnitSyntax luaCompilationUnit = new LuaCompilationUnitSyntax(hasGeneratedMark: false);
+        if (manifestAsFunction) {
+          var functionExpression = new LuaFunctionExpressionSyntax();
+          var initCSharpFunctionDeclarationStatement = new LuaLocalVariablesSyntax() { Initializer = new LuaEqualsValueClauseListSyntax(functionExpression.ArrayOf()) };
+          initCSharpFunctionDeclarationStatement.Variables.Add(new LuaSymbolNameSyntax(new LuaIdentifierLiteralExpressionSyntax(kManifestFuncName)));
+          functionExpression.AddStatements(manifestStatements);
+          luaCompilationUnit.AddStatement(new LuaLocalDeclarationStatementSyntax(initCSharpFunctionDeclarationStatement));
+        } else {
+          foreach (var statement in manifestStatements) {
+            luaCompilationUnit.AddStatement(statement);
+          }
+        }
+
         Write(luaCompilationUnit, writer);
         writer.WriteLine();
       }
@@ -363,16 +457,18 @@ namespace CSharpLua {
     public string GenerateSingle() {
       foreach (var luaCompilationUnit in Create()) {
         StringBuilder sb = new StringBuilder();
-        var writer = new StringWriter(sb); 
-        Write(luaCompilationUnit, writer);
+        using (var writer = new StringWriter(sb)) {
+          Write(luaCompilationUnit, writer);
+        }
         return sb.ToString();
       }
       throw new InvalidProgramException();
     }
 
     internal string RemoveBaseFolder(string path) {
-      if (!string.IsNullOrEmpty(Setting.BaseFolder)) {
-        return path.Remove(0, Setting.BaseFolder.Length).TrimStart(Path.DirectorySeparatorChar, '/');
+      var baseFolder = Setting.GetBaseFolder(ref path);
+      if (!string.IsNullOrEmpty(baseFolder)) {
+        return path.Remove(0, baseFolder.Length).TrimStart(Path.DirectorySeparatorChar, '/');
       }
       return Path.GetFileName(path);
     }
@@ -2014,7 +2110,7 @@ namespace CSharpLua {
             var arguments = delegateMethod.Parameters.Select(i => GetTypeName(i.Type, transform)).ToList();
             var argument = delegateMethod.ReturnsVoid ? LuaIdentifierNameSyntax.SystemVoid : GetTypeName(delegateMethod.ReturnType, transform);
             arguments.Add(argument);
-            return new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.Delegate, arguments);
+            return new LuaInvocationExpressionSyntax(LuaIdentifierNameSyntax.Delegate, arguments); ;
           }
         }
         return LuaIdentifierNameSyntax.Delegate;

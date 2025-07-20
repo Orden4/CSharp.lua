@@ -494,7 +494,7 @@ local _, _, version = sfind(_VERSION, "^Lua (.*)$")
 version = tonumber(version)
 System.luaVersion = version
 
-if version < 5.3 then
+--[[if version < 5.3 then
   local bnot, band, bor, xor, sl, sr
   local bit = rawget(global, "bit")
   if not bit then
@@ -724,7 +724,7 @@ if version < 5.3 then
     end
   end
 else
-  load[[
+  load[[]]
   local System = System
   local throw = System.throw
   local trunc = System.trunc
@@ -864,8 +864,8 @@ else
     return v
   end
 
-  ]]()
-end
+--  ]]()
+--end
 
 local toUInt = System.toUInt
 local toInt = System.toInt
@@ -1741,12 +1741,14 @@ function System.init(t)
   return current
 end
 
-System.config = rawget(global, "CSharpLuaSystemConfig") or {}
-local isSingleFile = rawget(global, "CSharpLuaSingleFile")
-if not isSingleFile then
-  return function (config)
-    if config then
-      System.config = config
-    end
-  end
-end
+--System.config = rawget(global, "CSharpLuaSystemConfig") or {}
+--local isSingleFile = rawget(global, "CSharpLuaSingleFile")
+--if not isSingleFile then
+--  return function (config)
+--    if config then
+--      System.config = config 
+--    end
+--  end
+--end
+
+System.config = {}

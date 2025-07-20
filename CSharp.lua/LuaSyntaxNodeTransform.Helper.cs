@@ -22,10 +22,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Globalization;
 
+using CSharpLua.LuaAst;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using CSharpLua.LuaAst;
 
 namespace CSharpLua {
   public sealed partial class LuaSyntaxNodeTransform {
@@ -532,7 +532,7 @@ namespace CSharpLua {
       return LuaIdentifierLiteralExpressionSyntax.Nil;
     }
 
-    private LuaExpressionSyntax GetConstLiteralExpression(IFieldSymbol constField) {
+    private LuaExpressionSyntax GetConstLiteralExpression(IFieldSymbol constField, TypedConstant? constValue = null) {
       Contract.Assert(constField.HasConstantValue);
       if (constField.Type.SpecialType == SpecialType.System_Char) {
         return new LuaCharacterLiteralExpression((char)constField.ConstantValue);
@@ -543,7 +543,9 @@ namespace CSharpLua {
         return typeName.MemberAccess(constField.Name);
       }
 
-      var literalExpression = GetLiteralExpression(constField.ConstantValue);
+      var literalExpression = constValue.HasValue
+        ? new LuaIdentifierLiteralExpressionSyntax(constValue.Value.ToString())
+        : GetLiteralExpression(constField.ConstantValue);
       string identifierToken = constField.ContainingType.Name + '.' + constField.Name;
       return new LuaConstLiteralExpression(literalExpression, identifierToken);
     }
@@ -729,7 +731,7 @@ namespace CSharpLua {
       }
     }
 
-    private bool CheckUsingStaticNameSyntax(ISymbol symbol, NameSyntax node, LuaExpressionSyntax expression, out LuaMemberAccessExpressionSyntax outExpression) {
+    private bool CheckUsingStaticNameSyntax(ISymbol symbol, NameSyntax node, LuaExpressionSyntax expression, out LuaExpressionSyntax outExpression) {
       bool isUsingStaticName = false;
       if (node.Parent.IsKind(SyntaxKind.SimpleMemberAccessExpression)) {
         var memberAccess = (MemberAccessExpressionSyntax)node.Parent;

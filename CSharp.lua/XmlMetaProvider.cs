@@ -18,171 +18,23 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.IO;
+using System.Linq;
 using System.Text;
+using System.Xml;
 using System.Xml.Serialization;
+
 using Microsoft.CodeAnalysis;
 
 namespace CSharpLua {
-  public sealed class XmlMetaProvider {
-    [XmlRoot("meta")]
-    public sealed class XmlMetaModel {
-      public sealed class TemplateModel {
-        [XmlAttribute]
-        public string Template;
+  public sealed partial class XmlMetaProvider {
+    private static XmlMetaProvider currentXmlMetaProvider_;
+    private readonly Dictionary<string, string> fieldMetadata_ = new();
+
+    internal static string GetFieldMetadata(string fieldDocumentationId) {
+      if (currentXmlMetaProvider_ is null) {
+        return null;
       }
-
-      public class MemberModel {
-        [XmlAttribute]
-        public string name;
-
-        [XmlAttribute]
-        public string Baned;
-
-        protected static bool TryTryParseBool(string v, out bool b) {
-          b = false;
-          if (v != null) {
-            if (v.Equals(bool.TrueString, StringComparison.OrdinalIgnoreCase)) {
-              b = true;
-              return true;
-            }
-            if (v.Equals(bool.FalseString, StringComparison.OrdinalIgnoreCase)) {
-              b = false;
-              return false;
-            }
-          }
-          return false;
-        }
-
-        internal bool IsBaned {
-          get {
-            if (!string.IsNullOrEmpty(Baned)) {
-              if (TryTryParseBool(Baned, out bool b)) {
-                return b;
-              }
-              return true;
-            }
-            return false;
-          }
-        }
-
-        private string BanedMessage {
-          get {
-            if (!string.IsNullOrEmpty(Baned)) {
-              if (TryTryParseBool(Baned, out bool b)) {
-                return b ? "cannot use" : null;
-              }
-              return Baned;
-            }
-            return null;
-          }
-        }
-
-        public void CheckBaned(ISymbol symbol) {
-          if (IsBaned) {
-            throw new CompilationErrorException($"{symbol} is baned, {BanedMessage}");
-          }
-        }
-      }
-
-      public sealed class PropertyModel : MemberModel {
-        [XmlAttribute]
-        public string Name;
-        [XmlElement]
-        public TemplateModel set;
-        [XmlElement]
-        public TemplateModel get;
-        [XmlAttribute]
-        public string IsField;
-
-        public bool? CheckIsField {
-          get {
-            if (TryTryParseBool(IsField, out bool b)) {
-              return b;
-            }
-            return null;
-          }
-        }
-      }
-
-      public sealed class FieldModel : MemberModel {
-        [XmlAttribute]
-        public string Template;
-        [XmlAttribute]
-        public bool IsProperty;
-      }
-
-      public sealed class ArgumentModel {
-        [XmlAttribute]
-        public string type;
-        [XmlElement("arg")]
-        public ArgumentModel[] GenericArgs;
-      }
-
-      public sealed class MethodModel : MemberModel {
-        [XmlAttribute]
-        public string Name;
-        [XmlAttribute]
-        public string Template;
-        [XmlAttribute]
-        public int ArgCount = -1;
-        [XmlElement("arg")]
-        public ArgumentModel[] Args;
-        [XmlAttribute]
-        public string RetType;
-        [XmlAttribute]
-        public int GenericArgCount = -1;
-        [XmlAttribute]
-        public bool IgnoreGeneric;
-
-        internal string GetMetaInfo(MethodMetaType type) {
-          switch (type) {
-            case MethodMetaType.Name: {
-              return Name;
-            }
-            case MethodMetaType.CodeTemplate: {
-              return Template;
-            }
-            case MethodMetaType.IgnoreGeneric: {
-              return IgnoreGeneric ? bool.TrueString : bool.FalseString;
-            }
-            default: {
-              throw new InvalidOperationException();
-            }
-          }
-        }
-      }
-
-      public sealed class ClassModel : MemberModel {
-        [XmlAttribute]
-        public string Name;
-        [XmlElement("property")]
-        public PropertyModel[] Properties;
-        [XmlElement("field")]
-        public FieldModel[] Fields;
-        [XmlElement("method")]
-        public MethodModel[] Methods;
-        [XmlAttribute]
-        public bool IgnoreGeneric;
-        [XmlAttribute]
-        public bool Readonly;
-      }
-
-      public sealed class NamespaceModel : MemberModel {
-        [XmlAttribute]
-        public string Name;
-        [XmlElement("class")]
-        public ClassModel[] Classes;
-      }
-
-      public sealed class AssemblyModel {
-        [XmlElement("namespace")]
-        public NamespaceModel[] Namespaces;
-        [XmlElement("class")]
-        public ClassModel[] Classes;
-      }
-
-      [XmlElement("assembly")]
-      public AssemblyModel Assembly;
+      return currentXmlMetaProvider_.fieldMetadata_.TryGetValue(fieldDocumentationId, out var value) ? value : null;
     }
 
     internal enum MethodMetaType {
@@ -219,12 +71,11 @@ namespace CSharpLua {
         StringBuilder sb = new StringBuilder();
         INamedTypeSymbol typeSymbol = (INamedTypeSymbol)symbol.OriginalDefinition;
         var namespaceSymbol = typeSymbol.ContainingNamespace;
-        
-        if(symbol.ContainingType != null) {
+
+        if (symbol.ContainingType != null) {
           sb.Append(GetTypeString(symbol.ContainingType));
           sb.Append('.');
-        }
-        else if (!namespaceSymbol.IsGlobalNamespace) {
+        } else if (!namespaceSymbol.IsGlobalNamespace) {
           sb.Append(namespaceSymbol);
           sb.Append('.');
         }
@@ -410,24 +261,208 @@ namespace CSharpLua {
     private readonly Dictionary<string, TypeMetaInfo> typeMetas_ = new();
 
     public XmlMetaProvider(IEnumerable<Stream> streams) {
-      foreach (Stream stream in streams) {
-        var serializer = new XmlSerializer(typeof(XmlMetaModel));
-        XmlMetaModel model = (XmlMetaModel)serializer.Deserialize(stream);
+      currentXmlMetaProvider_ = this;
+
+      using (var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(MetaResources.System))) {
+        DeserializeXmlFile(memoryStream);
+      }
+      foreach (var stream in streams) {
+        DeserializeXmlFile(stream);
+      }
+    }
+
+    private void DeserializeXmlFile(Stream xmlFileStream) {
+      var rootElementName = GetXmlRootElementName(xmlFileStream);
+      xmlFileStream.Position = 0;
+      switch (rootElementName) {
+        case "meta": DeserializeXmlMetaFile(xmlFileStream, ignoreDuplicate: false); break;
+        case "doc": DeserializeXmlDocFile(xmlFileStream, ignoreDuplicate: true); break;
+        default: throw new InvalidOperationException($"Xml root <{rootElementName}> was not expected.");
+      }
+    }
+
+    private string GetXmlRootElementName(Stream xmlFileStream) {
+      // https://stackoverflow.com/questions/4498423/how-do-i-get-the-xml-root-node-with-c/8046938#8046938
+      using (var reader = XmlReader.Create(xmlFileStream)) {
+        while (reader.Read()) {
+          // first element is the root element
+          if (reader.NodeType == XmlNodeType.Element) {
+            return reader.Name;
+          }
+        }
+      }
+      return null;
+    }
+
+    private void DeserializeXmlMetaFile(Stream metaFileStream, bool ignoreDuplicate) {
+      var serializer = new XmlSerializer(typeof(XmlMetaModel));
+      try {
+        XmlMetaModel model = (XmlMetaModel)serializer.Deserialize(metaFileStream);
         var assembly = model.Assembly;
         if (assembly != null) {
           if (assembly.Namespaces != null) {
             foreach (var namespaceModel in assembly.Namespaces) {
-              LoadNamespace(namespaceModel);
+              LoadNamespace(namespaceModel, ignoreDuplicate);
             }
           }
           if (assembly.Classes != null) {
-            LoadType(string.Empty, assembly.Classes);
+            LoadType(string.Empty, assembly.Classes, ignoreDuplicate);
           }
         }
+      } catch (Exception e) {
+        throw new Exception($"load <meta> xml file wrong at {(metaFileStream is FileStream fs ? fs.Name : "(embedded resource file)")}", e);
       }
     }
 
-    private void LoadNamespace(XmlMetaModel.NamespaceModel model) {
+    private void DeserializeXmlDocFile(Stream docFileStream, bool ignoreDuplicate) {
+      var serializer = new XmlSerializer(typeof(doc));
+      try {
+        doc model = (doc)serializer.Deserialize(docFileStream);
+        var assembly = model.Items[0] as docAssembly;
+        var members = model.Items[1] as docMembers;
+        const string globalNamespace = "global::";
+        var namespaces = new Dictionary<string, XmlMetaModel.NamespaceModel>();
+        var classes = new Dictionary<string, List<XmlMetaModel.ClassModel>>(); // key: namespaceName
+        var fields = new Dictionary<string, List<XmlMetaModel.FieldModel>>(); // key: className
+        var properties = new Dictionary<string, List<XmlMetaModel.PropertyModel>>(); // key: className
+        var methods = new Dictionary<string, List<XmlMetaModel.MethodModel>>(); // key: className
+
+        bool IsClassAdded(string fullName) {
+          return fields.ContainsKey(fullName);
+        }
+
+        void TryAddClass(string fullName) {
+          if (IsClassAdded(fullName)) {
+            return;
+          }
+          var @class = new XmlMetaModel.ClassModel();
+          @class.name = GetShortName(fullName);
+          var namespaceName = GetContainer(fullName);
+          if (string.IsNullOrEmpty(namespaceName)) {
+            namespaceName = globalNamespace;
+          }
+          if (!namespaces.ContainsKey(namespaceName)) {
+            var namespaceModel = new XmlMetaModel.NamespaceModel();
+            namespaceModel.name = namespaceName;
+            namespaces.Add(namespaceName, namespaceModel);
+            classes.Add(namespaceName, new List<XmlMetaModel.ClassModel>());
+          }
+          classes[namespaceName].Add(@class);
+          // classes.Add(fullName, @class);
+          fields.Add(fullName, new List<XmlMetaModel.FieldModel>());
+          properties.Add(fullName, new List<XmlMetaModel.PropertyModel>());
+          methods.Add(fullName, new List<XmlMetaModel.MethodModel>());
+        }
+
+        foreach (var member in members.member) {
+          ParseDocMemberName(member.name, out var type, out var fullName, out var parameters);
+          switch (type) {
+            case 'T':
+              TryAddClass(fullName);
+              break;
+
+            case 'F':
+              var field = new XmlMetaModel.FieldModel();
+              field.name = GetShortName(fullName);
+              field.Template = Utility.TryGetCodeTemplateFromAttributeText(member.node?.FirstOrDefault()?.InnerText);
+              fieldMetadata_.Add(member.name, field.Template);
+              var container = GetContainer(fullName);
+              TryAddClass(container);
+              fields[container].Add(field);
+              break;
+
+            // TODO: P (property), E (event), N (namespace)
+
+            case 'M':
+              var method = new XmlMetaModel.MethodModel();
+              method.name = GetShortName(fullName);
+              method.Template = Utility.TryGetCodeTemplateFromAttributeText(member.node?.FirstOrDefault()?.InnerText);
+              method.ArgCount = parameters?.Length ?? -1;
+              if (method.ArgCount > 0) {
+                method.Args = parameters.Select(param => {
+                  var argModel = new XmlMetaModel.ArgumentModel();
+                  // argModel.type = param.Replace('{', '<').Replace('}', '>');
+                  var split = param.Split('{');
+                  if (split.Length > 1) {
+                    argModel.type = $"{split[0]}`{split[1].Split(',').Length}";
+                  } else {
+                    argModel.type = param;
+                  }
+                  return argModel;
+                }).ToArray();
+              }
+              container = GetContainer(fullName);
+              TryAddClass(container);
+              methods[container].Add(method);
+              break;
+          }
+        }
+        foreach (var @namespace in namespaces) {
+          var namespaceName = @namespace.Key;
+          var namespaceModel = @namespace.Value;
+          foreach (var classModel in classes[namespaceName]) {
+            var fullName = $"{namespaceName}.{classModel.name}";
+            classModel.Fields = fields[fullName].ToArray();
+            classModel.Properties = properties[fullName].ToArray();
+            classModel.Methods = methods[fullName].ToArray();
+          }
+          namespaceModel.Classes = classes[namespaceName].ToArray();
+          LoadNamespace(namespaceModel, ignoreDuplicate);
+        }
+        /*foreach (var className in classes.Keys) {
+          var @class = classes[className];
+          @class.Fields = fields[className].ToArray();
+          @class.Properties = properties[className].ToArray();
+          @class.Methods = methods[className].ToArray();
+          LoadType(GetContainer(className), @class);
+        }*/
+      } catch (Exception e) {
+        throw new Exception($"load <doc> xml file wrong at {(docFileStream is FileStream fs ? fs.Name : "(embedded resource file)")}", e);
+      }
+    }
+
+    private static void ParseDocMemberName(string name, out char type, out string fullyQualifiedName, out string[] parameters) {
+      type = name[0];
+      Contract.Assert(name[1] == ':');
+      name = name.Substring(2);
+      switch (type) {
+        case 'T':
+        case 'F':
+        case 'E':
+          fullyQualifiedName = name;
+          parameters = null;
+          break;
+
+        case 'M':
+        case 'P':
+          var split = name.Split('(');
+          if (split.Length == 1) {
+            fullyQualifiedName = name;
+            parameters = null;
+          } else {
+            fullyQualifiedName = split[0];
+            parameters = new string(split[1].Take(split[1].Length - 1).ToArray()).Split(',');
+          }
+          break;
+
+        default: throw new InvalidDataException($"Unrecognized member type: {type}");
+      }
+    }
+
+    private static string GetContainer(string name) {
+      var split = name.Split('.');
+      if (split.Length == 1) {
+        return string.Empty;
+      }
+
+      return split.Take(split.Length - 1).Aggregate((accum, next) => $"{accum}.{next}");
+    }
+
+    private static string GetShortName(string name) {
+      return name.Split('.').Last();
+    }
+
+    private void LoadNamespace(XmlMetaModel.NamespaceModel model, bool ignoreDuplicate) {
       string namespaceName = model.name;
       if (namespaceName == null) {
         throw new ArgumentException("namespace.name is null");
@@ -435,7 +470,11 @@ namespace CSharpLua {
 
       if (namespaceName.Length > 0) {
         if (namespaceNameMaps_.ContainsKey(namespaceName)) {
-          throw new ArgumentException($"namespace [{namespaceName}] is already has");
+          if (ignoreDuplicate) {
+            return;
+          } else {
+            throw new ArgumentException($"namespace [{namespaceName}] is already has");
+          }
         }
         if (!string.IsNullOrEmpty(model.Name) || model.IsBaned) {
           namespaceNameMaps_.Add(namespaceName, model);
@@ -444,25 +483,33 @@ namespace CSharpLua {
 
       if (model.Classes != null) {
         string name = !string.IsNullOrEmpty(model.Name) ? model.Name : namespaceName;
-        LoadType(name, model.Classes);
+        LoadType(name, model.Classes, ignoreDuplicate);
       }
     }
 
-    private void LoadType(string namespaceName, XmlMetaModel.ClassModel[] classes) {
+    private void LoadType(string namespaceName, XmlMetaModel.ClassModel[] classes, bool ignoreDuplicate) {
       foreach (var classModel in classes) {
-        string className = classModel.name;
-        if (string.IsNullOrEmpty(className)) {
-          throw new ArgumentException($"namespace [{namespaceName}] has a class's name is empty");
-        }
+        LoadType(namespaceName, classModel, ignoreDuplicate);
+      }
+    }
 
-        string classesFullName = namespaceName.Length > 0 ? namespaceName + '.' + className : className;
-        classesFullName = classesFullName.Replace('`', '_');
-        if (typeMetas_.ContainsKey(classesFullName)) {
+    private void LoadType(string namespaceName, XmlMetaModel.ClassModel classModel, bool ignoreDuplicate) {
+      string className = classModel.name;
+      if (string.IsNullOrEmpty(className)) {
+        throw new ArgumentException($"namespace [{namespaceName}] has a class's name is empty");
+      }
+
+      string classesFullName = namespaceName.Length > 0 ? namespaceName + '.' + className : className;
+      classesFullName = classesFullName.Replace('`', '_');
+      if (typeMetas_.ContainsKey(classesFullName)) {
+        if (ignoreDuplicate) {
+          return;
+        } else {
           throw new ArgumentException($"type [{classesFullName}] is already has");
         }
-        TypeMetaInfo info = new TypeMetaInfo(classModel);
-        typeMetas_.Add(classesFullName, info);
       }
+      TypeMetaInfo info = new TypeMetaInfo(classModel);
+      typeMetas_.Add(classesFullName, info);
     }
 
     public string GetNamespaceMapName(INamespaceSymbol symbol, string original) {

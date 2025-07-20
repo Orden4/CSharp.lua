@@ -43,6 +43,7 @@ namespace CSharpLua.LuaAst {
     }
 
     public static readonly LuaIdentifierLiteralExpressionSyntax Nil = new(LuaIdentifierNameSyntax.Nil);
+    // TODO: implicit operator for booleans
     public static readonly LuaIdentifierLiteralExpressionSyntax True = new(LuaIdentifierNameSyntax.True);
     public static readonly LuaIdentifierLiteralExpressionSyntax False = new(LuaIdentifierNameSyntax.False);
   }

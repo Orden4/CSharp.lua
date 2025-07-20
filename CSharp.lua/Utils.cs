@@ -30,6 +30,7 @@ using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Emit;
 
 using CSharpLua.LuaAst;
 
@@ -41,6 +42,11 @@ namespace CSharpLua {
 
   public sealed class CompilationErrorException : Exception {
     public SyntaxNode SyntaxNode { get; }
+    public EmitResult EmitResult { get; }
+
+    public CompilationErrorException(EmitResult emitResult) {
+      EmitResult = emitResult;
+    }
 
     public CompilationErrorException(string message) : base(message) {
     }
@@ -510,7 +516,11 @@ namespace CSharpLua {
     }
 
     public static bool IsFromCode(this ISymbol symbol) {
-      return !symbol.DeclaringSyntaxReferences.IsEmpty;
+      var syntaxReferences = symbol.DeclaringSyntaxReferences;
+      if (syntaxReferences.IsEmpty) {
+        return false;
+      }
+      return !HasCSharpLuaAttribute(syntaxReferences.First().GetSyntax(), LuaDocumentStatement.AttributeFlags.Ignore);
     }
 
     public static bool IsFromAssembly(this ISymbol symbol) {
@@ -596,6 +606,9 @@ namespace CSharpLua {
         if (node.HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Template, out string text)) {
           return GetCodeTemplateFromAttributeText(text, codeTemplateAttributeRegex_);
         }
+      } else if (symbol.Kind == SymbolKind.Field) {
+        Contract.Assert(symbol.IsFromAssembly());
+        return XmlMetaProvider.GetFieldMetadata(symbol.GetDocumentationCommentId());
       } else {
         string xml = symbol.GetDocumentationCommentXml();
         if (xml != null) {
@@ -626,6 +639,10 @@ namespace CSharpLua {
     private static readonly Regex codeTemplateAttributeRegex_ = new(@"@CSharpLua.Template\s*=\s*(.+)\s*", RegexOptions.Compiled);
     private static readonly Regex codeGetAttributeRegex_ = new(@"@CSharpLua.Get\s*=\s*(.+)\s*", RegexOptions.Compiled);
     private static readonly Regex codeSetAttributeRegex_ = new(@"@CSharpLua.Set\s*=\s*(.+)\s*", RegexOptions.Compiled);
+
+    internal static string TryGetCodeTemplateFromAttributeText(string document) {
+      return document is null ? null : GetCodeTemplateFromAttributeText(document, codeTemplateAttributeRegex_);
+    }
 
     private static string GetCodeTemplateFromAttributeText(string document, Regex regex) {
       var matches = regex.Matches(document);

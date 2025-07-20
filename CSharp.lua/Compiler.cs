@@ -14,121 +14,85 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#nullable enable
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 
 namespace CSharpLua {
   public sealed class Compiler {
-    private const string kDllSuffix = ".dll";
-    private const string kSystemMeta = "~/System.xml";
-    private const char kLuaModuleSuffix = '!';
-
-    private readonly string input_;
-    private readonly string output_;
-    private readonly string[] libs_;
-    private readonly string[] metas_;
-    private readonly string[] cscArguments_;
-    private readonly bool isClassic_;
-    private readonly string[] attributes_;
-    private readonly string[] enums_;
-
     public bool IsExportMetadata { get; set; }
     public bool IsModule { get; set; }
     public bool IsInlineSimpleProperty { get; set; }
     public bool IsPreventDebugObject { get; set; }
+    public bool IsCommentsDisabled { get; set; }
     public bool IsNotConstantForEnum { get; set; }
     public bool IsNoConcurrent { get; set; }
     public string Include { get; set; }
+    private CompilerSettings Settings { get; }
 
-    public Compiler(string input, string output, string lib, string meta, string csc, bool isClassic, string atts, string enums) {
-      input_ = input;
-      output_ = output;
-      libs_ = Utility.Split(lib);
-      metas_ = Utility.Split(meta);
-      cscArguments_ = string.IsNullOrEmpty(csc) ? Array.Empty<string>() : csc.Trim().Split(' ', '\t');
-      isClassic_ = isClassic;
-      if (atts != null) {
-        attributes_ = Utility.Split(atts, false);
-      }
-      if (enums != null) {
-        enums_ = Utility.Split(enums, false);
+    public Compiler(string input, string output, string lib, string meta, string csc, bool isClassic, string? atts, string? enums)
+      : this(input, output, lib, meta, null, "System.*;*.Sources;Microsoft.NETCore.Platforms;NETStandard.Library", csc, isClassic, atts, enums) {
+    }
+
+    public Compiler(string input, string output, string lib, string meta, string? packageIncl, string? packageExcl, string csc, bool isClassic, string? atts, string? enums) {
+      Settings = new CompilerSettings(input, output, lib, meta, packageIncl, packageExcl, csc, isClassic, atts, enums);
+    }
+
+    public static string CompileSingleCode(string code) {
+      var codes = new (string, string)[] { (code, "") };
+      var generator = new LuaSyntaxGenerator(codes, GetSystemLibs(), null, Array.Empty<string>(), new LuaSyntaxGenerator.SettingInfo());
+      return generator.GenerateSingle();
+    }
+
+    /// <summary>
+    /// for Blazor to use
+    /// </summary>
+    public static string CompileSingleCode(string code, IEnumerable<Stream> libs, IEnumerable<Stream> metas) {
+      var codes = new (string, string)[] { (code, "") };
+      var generator = new LuaSyntaxGenerator(codes, libs, null, metas, new LuaSyntaxGenerator.SettingInfo {
+        IsNoConcurrent = true,
+      });
+      return generator.GenerateSingle();
+    }
+
+    public void Compile() {
+      if (Include == null) {
+        GetGenerator().Generate(Settings.output_);
+      } else {
+        var luaSystemLibs = GetIncludeCoreSystemPaths(Include);
+        GetGenerator().GenerateSingleFile("out.lua", Settings.output_, luaSystemLibs);
       }
     }
 
-    private static IEnumerable<string> GetMetas(IEnumerable<string> additionalMetas) {
-      List<string> metas = new List<string> { Utility.GetCurrentDirectory(kSystemMeta) };
-      if (additionalMetas != null) {
-        metas.AddRange(additionalMetas);
-      }
-      return metas;
+    public void CompileSingleFile(string fileName, IEnumerable<string> luaSystemLibs) {
+      GetGenerator().GenerateSingleFile(fileName, Settings.output_, luaSystemLibs);
     }
 
-    private IEnumerable<string> Metas => GetMetas(metas_);
-
-    private static bool IsCorrectSystemDll(string path) {
-      try {
-        Assembly.LoadFile(path);
-        return true;
-      } catch (Exception) {
-        return false;
-      }
+    public void CompileSingleFile(Stream target, IEnumerable<string> luaSystemLibs) {
+      GetGenerator().GenerateSingleFile(target, luaSystemLibs);
     }
 
-    private static List<string> GetSystemLibs() {
+    internal static List<string> GetSystemLibs() {
       string privateCorePath = typeof(object).Assembly.Location;
       List<string> libs = new List<string> { privateCorePath };
 
       string systemDir = Path.GetDirectoryName(privateCorePath);
       foreach (string path in Directory.EnumerateFiles(systemDir, "*.dll")) {
-        if (IsCorrectSystemDll(path)) {
+        try {
+          Assembly.LoadFile(path);
           libs.Add(path);
+        } catch {
         }
       }
 
       return libs;
     }
 
-    private static List<string> GetLibs(IEnumerable<string> additionalLibs, out List<string> luaModuleLibs) {
-      luaModuleLibs = new List<string>();
-      var libs = GetSystemLibs();
-      if (additionalLibs != null) {
-        foreach (string additionalLib in additionalLibs) {
-          string lib = additionalLib;
-          bool isLuaModule = false;
-          if (lib.Last() == kLuaModuleSuffix) {
-            lib = lib.TrimEnd(kLuaModuleSuffix);
-            isLuaModule = true;
-          }
-
-          string path = lib.EndsWith(kDllSuffix) ? lib : lib + kDllSuffix;
-          if (File.Exists(path)) {
-            if (isLuaModule) {
-              luaModuleLibs.Add(Path.GetFileNameWithoutExtension(path));
-            }
-
-            libs.Add(path);
-          } else {
-            throw new CmdArgumentException($"-l {path} is not found");
-          }
-        }
-      }
-      return libs;
-    }
-
-    public void Compile() {
-      if (Include == null) {
-        GetGenerator().Generate(output_);
-      } else {
-        var luaSystemLibs = GetIncludeCorSystemPaths(Include);
-        GetGenerator().GenerateSingleFile("out.lua", output_, luaSystemLibs);
-      }
-    }
-
-    private static IEnumerable<string> GetIncludeCorSystemPaths(string dir) {
+    private static IEnumerable<string> GetIncludeCoreSystemPaths(string dir) {
       const string kBeginMark = "load(\"";
 
       string allFilePath = Path.Combine(dir, "All.lua");
@@ -152,51 +116,23 @@ namespace CSharpLua {
       return luaSystemLibs;
     }
 
-    private IEnumerable<string> GetSourceFiles(out bool isDirectory) {
-      if (Directory.Exists(input_)) {
-        isDirectory = true;
-        return Directory.EnumerateFiles(input_, "*.cs", SearchOption.AllDirectories);
-      }
-
-      isDirectory = false;
-      return Utility.Split(input_);
+    private LuaSyntaxGenerator GetGenerator() {
+      return LuaSyntaxGeneratorFactory.CreateGenerator(Settings, GetGeneratorSettingInfo());
     }
 
-    private LuaSyntaxGenerator GetGenerator() {
-      var files = GetSourceFiles(out bool isDirectory);
-      var codes = files.Select(i => (File.ReadAllText(i), i));
-      var libs = GetLibs(libs_, out var luaModuleLibs);
-      var setting = new LuaSyntaxGenerator.SettingInfo {
-        IsClassic = isClassic_,
+    private LuaSyntaxGenerator.SettingInfo GetGeneratorSettingInfo() {
+      return new LuaSyntaxGenerator.SettingInfo {
+        IsClassic = Settings.isClassic_,
         IsExportMetadata = IsExportMetadata,
-        BaseFolder = isDirectory ? input_ : null,
-        Attributes = attributes_,
-        Enums = enums_,
-        LuaModuleLibs = new HashSet<string>(luaModuleLibs),
+        Attributes = Settings.attributes_,
+        Enums = Settings.enums_,
         IsModule = IsModule,
         IsInlineSimpleProperty = IsInlineSimpleProperty,
         IsPreventDebugObject = IsPreventDebugObject,
+        IsCommentsDisabled = IsCommentsDisabled,
         IsNotConstantForEnum = IsNotConstantForEnum,
         IsNoConcurrent = IsNoConcurrent,
       };
-      return new LuaSyntaxGenerator(codes, libs, cscArguments_, Metas, setting);
-    }
-
-    public static string CompileSingleCode(string code) {
-      var codes = new (string, string)[] { (code, "") };
-      var generator = new LuaSyntaxGenerator(codes, GetSystemLibs(), null, GetMetas(null), new LuaSyntaxGenerator.SettingInfo());
-      return generator.GenerateSingle();
-    }
-
-    /// <summary>
-    /// for Blazor to use
-    /// </summary>
-    public static string CompileSingleCode(string code, IEnumerable<Stream> libs, IEnumerable<Stream> metas) {
-      var codes = new (string, string)[] { (code, "") };
-      var generator = new LuaSyntaxGenerator(codes, libs, null, metas, new LuaSyntaxGenerator.SettingInfo { 
-        IsNoConcurrent = true
-      });
-      return generator.GenerateSingle();
     }
   }
 }
