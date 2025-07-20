@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29215.179
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.36129.11
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CSharp.lua", "CSharp.lua\CSharp.lua.csproj", "{0CF2866D-CB70-4E0A-84DB-B09D6FC9948C}"
 EndProject
@@ -12,6 +12,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CSharp.lua.Api", "CSharp.lua.Api\CSharp.lua.Api.csproj", "{98BA3666-A1F7-4366-8807-3D4D7D15892B}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CSharp.lua.Tests", "CSharp.lua.Tests\CSharp.lua.Tests.csproj", "{84566F2F-8D30-4FA5-BB46-3EA9F964F4B7}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tools.NuGetPusher", "Tools.NuGetPusher\Tools.NuGetPusher.csproj", "{14F53452-AB8E-460B-AF1C-59AECA9755F5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{84566F2F-8D30-4FA5-BB46-3EA9F964F4B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{84566F2F-8D30-4FA5-BB46-3EA9F964F4B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{84566F2F-8D30-4FA5-BB46-3EA9F964F4B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{14F53452-AB8E-460B-AF1C-59AECA9755F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{14F53452-AB8E-460B-AF1C-59AECA9755F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{14F53452-AB8E-460B-AF1C-59AECA9755F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{14F53452-AB8E-460B-AF1C-59AECA9755F5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
