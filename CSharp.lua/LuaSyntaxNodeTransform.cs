@@ -745,7 +745,7 @@ namespace CSharpLua {
         function.AddParameter(parameter);
         if (parameterNode.Modifiers.IsOutOrRef()) {
           refOrOutParameters.Add(parameter);
-        } else if (parameterNode.Modifiers.IsParams() && symbol.HasParamsAttribute()) {
+        } else if (parameterNode.Modifiers.IsParams() && generator_.HasParamsAttribute(symbol)) {
           function.ParameterList.Parameters[^1] = LuaSyntaxNode.Tokens.Params;
         }
       }
@@ -806,8 +806,8 @@ namespace CSharpLua {
       }
     }
 
-    private static bool IsExportMethodDeclaration(BaseMethodDeclarationSyntax node) {
-      return (node.Body != null || node.ExpressionBody != null) && !node.HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Ignore);
+    private bool IsExportMethodDeclaration(BaseMethodDeclarationSyntax node) {
+      return (node.Body != null || node.ExpressionBody != null) && !generator_.HasCSharpLuaAttribute(node, LuaDocumentStatement.AttributeFlags.Ignore);
     }
 
     public override LuaSyntaxNode VisitMethodDeclaration(MethodDeclarationSyntax node) {
@@ -901,7 +901,7 @@ namespace CSharpLua {
         bool isImmutable = typeSymbol.IsImmutable();
         foreach (var variable in node.Declaration.Variables) {
           var variableSymbol = semanticModel_.GetDeclaredSymbol(variable);
-          if (variableSymbol.IsAbstract || variableSymbol.IsExtern || variableSymbol.GetDeclaringSyntaxNode().HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Ignore)) {
+          if (variableSymbol.IsAbstract || variableSymbol.IsExtern || generator_.HasCSharpLuaAttribute(variableSymbol.GetDeclaringSyntaxNode(), LuaDocumentStatement.AttributeFlags.Ignore)) {
             continue;
           }
 
@@ -916,7 +916,7 @@ namespace CSharpLua {
                 typeExpression = GetTypeName(eventSymbol.ContainingType);
               }
               var (add, remove) = CurType.AddEvent(eventName, innerName, valueExpression, isImmutable && valueIsLiteral, isStatic, eventSymbol.IsPrivate(), typeExpression, statements);
-              if (attributes.Count > 0 || variableSymbol.HasMetadataAttribute()) {
+              if (attributes.Count > 0 || generator_.HasMetadataAttribute(variableSymbol)) {
                 AddPropertyOrEventMetaData(variableSymbol, new PropertyMethodResult(add), new PropertyMethodResult(remove), null, attributes);
               }
               continue;
@@ -932,7 +932,7 @@ namespace CSharpLua {
             isMoreThanUpValueStaticInit = IsMoreThanUpValueStaticInitField(variableSymbol);
           }
           AddField(fieldName, typeSymbol, value, isImmutable, isStatic, isPrivate, isReadOnly, isMoreThanLocalVariables, isMoreThanUpValueStaticInit);
-          if (IsCurTypeSerializable || attributes.Count > 0 || variableSymbol.HasMetadataAttribute()) {
+          if (IsCurTypeSerializable || attributes.Count > 0 || generator_.HasMetadataAttribute(variableSymbol)) {
             if (variableSymbol.Kind == SymbolKind.Field) {
               AddFieldMetaData((IFieldSymbol)variableSymbol, fieldName, attributes);
             } else {
@@ -1063,7 +1063,7 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitPropertyDeclaration(PropertyDeclarationSyntax node) {
       var symbol = semanticModel_.GetDeclaredSymbol(node);
-      if (!symbol.IsAbstract && !symbol.IsExtern && !symbol.GetDeclaringSyntaxNode().HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Ignore)) {
+      if (!symbol.IsAbstract && !symbol.IsExtern && !generator_.HasCSharpLuaAttribute(symbol.GetDeclaringSyntaxNode(), LuaDocumentStatement.AttributeFlags.Ignore)) {
         bool isStatic = symbol.IsStatic;
         bool isPrivate = generator_.IsPrivate(symbol) && symbol.ExplicitInterfaceImplementations.IsEmpty;
         bool hasGet = false;
@@ -1161,7 +1161,7 @@ namespace CSharpLua {
           }
         }
 
-        if (IsCurTypeSerializable || attributes.Count > 0 || symbol.HasMetadataAttribute()) {
+        if (IsCurTypeSerializable || attributes.Count > 0 || generator_.HasMetadataAttribute(symbol)) {
           AddPropertyOrEventMetaData(symbol, getMethod, setMethod, propertyName, attributes);
         }
       }
@@ -1175,7 +1175,7 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitEventDeclaration(EventDeclarationSyntax node) {
       var symbol = semanticModel_.GetDeclaredSymbol(node);
-      if (!symbol.IsAbstract && !symbol.IsExtern && !symbol.GetDeclaringSyntaxNode().HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Ignore)) {
+      if (!symbol.IsAbstract && !symbol.IsExtern && !generator_.HasCSharpLuaAttribute(symbol.GetDeclaringSyntaxNode(), LuaDocumentStatement.AttributeFlags.Ignore)) {
         var attributes = BuildAttributes(node.AttributeLists);
         bool isStatic = symbol.IsStatic;
         bool isPrivate = symbol.IsPrivate() && symbol.ExplicitInterfaceImplementations.IsEmpty;
@@ -1208,7 +1208,7 @@ namespace CSharpLua {
           }
         }
 
-        if (attributes.Count > 0 || symbol.HasMetadataAttribute()) {
+        if (attributes.Count > 0 || generator_.HasMetadataAttribute(symbol)) {
           AddPropertyOrEventMetaData(symbol, addMethod, removeMethod, null, attributes);
         }
       }
@@ -1225,7 +1225,7 @@ namespace CSharpLua {
       Contract.Assert(symbol.HasConstantValue);
       LuaIdentifierNameSyntax identifier = node.Identifier.ValueText;
       var attributes = BuildAttributes(node.AttributeLists);
-      if (IsCurTypeSerializable || attributes.Count > 0 || CurTypeSymbol.HasMetadataAttribute()) {
+      if (IsCurTypeSerializable || attributes.Count > 0 || generator_.HasMetadataAttribute(CurTypeSymbol)) {
         AddFieldMetaData(symbol, identifier, attributes);
       }
       var value = new LuaIdentifierLiteralExpressionSyntax(symbol.ConstantValue.ToString());
@@ -1234,7 +1234,7 @@ namespace CSharpLua {
 
     public override LuaSyntaxNode VisitIndexerDeclaration(IndexerDeclarationSyntax node) {
       var symbol = semanticModel_.GetDeclaredSymbol(node);
-      if (!symbol.IsAbstract && !symbol.IsExtern && !symbol.GetDeclaringSyntaxNode().HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Ignore)) {
+      if (!symbol.IsAbstract && !symbol.IsExtern && !generator_.HasCSharpLuaAttribute(symbol.GetDeclaringSyntaxNode(), LuaDocumentStatement.AttributeFlags.Ignore)) {
         bool isPrivate = symbol.IsPrivate();
         var indexName = GetMemberName(symbol);
         var parameterList = node.ParameterList.Accept<LuaParameterListSyntax>(this);
@@ -2496,7 +2496,7 @@ namespace CSharpLua {
         }
       } else if (!parameters.IsEmpty) {
         IParameterSymbol last = parameters.Last();
-        if (last.IsParams && generator_.IsFromLuaModule(symbol) && !symbol.HasParamsAttribute()) {
+        if (last.IsParams && generator_.IsFromLuaModule(symbol) && !generator_.HasParamsAttribute(symbol)) {
           if (parameters.Length == arguments.Count) {
             var paramsArgument = argumentNodeInfos.Last();
             if (paramsArgument.Name != null) {
@@ -2922,7 +2922,7 @@ namespace CSharpLua {
     }
 
     private bool IsPropertyField(IdentifierNameSyntax node, IPropertySymbol propertySymbol) {
-      return IsPropertyField(propertySymbol) || (IsInternalNode(node) && propertySymbol.IsAutoProperty());
+      return IsPropertyField(propertySymbol) || (IsInternalNode(node) && generator_.IsAutoProperty(propertySymbol));
     }
 
     private LuaExpressionSyntax VisitPropertyOrEventIdentifierName(IdentifierNameSyntax node, ISymbol symbol, bool isProperty, out bool isField) {
@@ -2932,7 +2932,7 @@ namespace CSharpLua {
         isField = IsPropertyField(node, propertySymbol);
         isReadOnly = propertySymbol.IsReadOnly;
         if (IsPropertyTemplate(propertySymbol)) {
-          var (get, set) = Utility.GetPropertyTemplateFromAttribute(symbol);
+          var (get, set) = generator_.GetPropertyTemplateFromAttribute(symbol);
           return new LuaPropertyTemplateExpressionSyntax(get, set);
         }
       } else {
@@ -3339,7 +3339,7 @@ namespace CSharpLua {
         }
         case SymbolKind.Field: {
           var fieldSymbol = (IFieldSymbol)symbol;
-          var codeTemplate = fieldSymbol.GetCodeTemplateFromAttribute();
+          var codeTemplate = generator_.GetCodeTemplateFromAttribute(fieldSymbol);
           if (codeTemplate != null) {
             identifier = BuildCodeTemplateExpression(codeTemplate, fieldSymbol.IsStatic ? null : LuaIdentifierNameSyntax.This);
             break;
