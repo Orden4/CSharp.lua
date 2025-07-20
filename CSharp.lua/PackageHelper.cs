@@ -134,7 +134,7 @@ namespace CSharpLua {
     }
 
     public static IEnumerable<PackageReferenceModel> EnumeratePackages(string targetFrameworkVersion, IEnumerable<Cake.Incubator.Project.CustomProjectParserResult> projects) {
-      var packageReferences = projects.SelectMany(project => project.PackageReferences.Select(packageReference => (packageReference.Name, VersionRange.Parse(packageReference.Version))));
+      var packageReferences = projects.SelectMany(project => project.PackageReferences.Select(packageReference => (packageReference.Name, VersionRange.TryParse(packageReference.Version, out var version) ? version: null)).Where(x => x.Item2 != null));
       return EnumeratePackages(targetFrameworkVersion, packageReferences);
     }
 

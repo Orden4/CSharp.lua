@@ -34,7 +34,7 @@ namespace NuGetPusher
 			this.filter = new SearchFilter(includePrerelease: true);
 		}
 
-		private string GetVersion(string project)
+		private static string GetVersion(string project)
 		{
 			var doc = XDocument.Load("Directory.Build.props");
 			var version = doc.Descendants(project.Replace("WCSharp.", "").Replace(".", "") + "Version").SingleOrDefault();
