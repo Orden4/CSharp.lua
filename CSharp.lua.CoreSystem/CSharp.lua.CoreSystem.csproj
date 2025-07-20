@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard1.0</TargetFramework>
     <RootNamespace>CSharpLua.CoreSystem</RootNamespace>
+    <Configurations>Debug;Release;CSharpLuaDev</Configurations>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
@@ -104,10 +105,6 @@
       <Pack>true</Pack>
     </Content>
     <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Collections\Stack.lua" Link="CoreSystem\Collections\Stack.lua">
-      <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
-      <Pack>true</Pack>
-    </Content>
-    <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Common.lua" Link="CoreSystem\Common.lua">
       <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
       <Pack>true</Pack>
     </Content>
@@ -248,6 +245,14 @@
       <Pack>true</Pack>
     </Content>
     <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Utilities.lua" Link="CoreSystem\Utilities.lua">
+      <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
+      <Pack>true</Pack>
+    </Content>
+    <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Wc3Api\War3Api.lua" Link="CoreSystem\Wc3Api\War3Api.lua">
+      <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
+      <Pack>true</Pack>
+    </Content>
+    <Content Update="..\CSharp.lua\CoreSystem.Lua\CoreSystem\Wc3Api\WCSharp.lua" Link="CoreSystem\Wc3Api\WCSharp.lua">
       <PackagePath>contentFiles\any\netstandard1.0\CoreSystem</PackagePath>
       <Pack>true</Pack>
     </Content>

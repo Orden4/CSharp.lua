@@ -20,10 +20,10 @@ namespace CSharpLua.CoreSystem {
       yield return Path.Combine(CoreSystemDirectory, @"DateTime.lua");
       switch (wc3Api) {
         case Wc3Api.War3Api:
-          yield return Path.Combine(CoreSystemDirectory, @"Common.lua");
+          yield return Path.Combine(CoreSystemDirectory, @"Wc3Api\War3Api.lua");
           break;
         case Wc3Api.WCSharp:
-          yield return Path.Combine(CoreSystemDirectory, @"WCSharp.lua");
+          yield return Path.Combine(CoreSystemDirectory, @"Wc3Api\WCSharp.lua");
           break;
       }
       yield return Path.Combine(CoreSystemDirectory, @"Collections\EqualityComparer.lua");
