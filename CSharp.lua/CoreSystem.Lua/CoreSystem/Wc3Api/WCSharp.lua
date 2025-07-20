@@ -9,9 +9,7 @@ local handle = define("WCSharp.Api.handle", {
   default = function()
     return nil
   end,
-  GetHashCode = function (t)
-    return tonumber("0x" .. ssub(tostring(t), 8))
-  end,
+  GetHashCode = System.addr,
   Equals = equalsHandle,
   EqualsOrb = equalsHandle
 })
