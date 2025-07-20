@@ -1217,7 +1217,6 @@ System.hasHash = function (t)
   return t.GetHashCode ~= hash
 end
 
-System.addr = addr
 System.equalsObj = equalsObj
 System.compareObj = compareObj
 System.hash = hash

@@ -9,7 +9,7 @@ local handle = define("War3Api.Common.handle", {
   default = function()
     return nil
   end,
-  GetHashCode = System.addr,
+  GetHashCode = System.hash,
   Equals = equalsHandle,
   EqualsOrb = equalsHandle
 })
