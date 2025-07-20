@@ -31,7 +31,7 @@
     <PackageReleaseNotes></PackageReleaseNotes>
 
     <PackageId>WCSharp.CSharpLua.CoreSystem</PackageId>
-    <Version>$(CSharpluaCoreSystemVersion)</Version>
+    <Version>$(CSharpLuaCoreSystemVersion)</Version>
   </PropertyGroup>
 
   <ItemGroup>

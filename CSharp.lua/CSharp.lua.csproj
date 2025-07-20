@@ -33,7 +33,7 @@
     <PackageReleaseNotes></PackageReleaseNotes>
 
     <PackageId>WCSharp.CSharpLua</PackageId>
-    <Version>$(CSharpluaVersion)</Version>
+    <Version>$(CSharpLuaVersion)</Version>
   </PropertyGroup>
 
   <ItemGroup>
