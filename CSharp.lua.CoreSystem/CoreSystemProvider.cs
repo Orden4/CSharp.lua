@@ -5,62 +5,65 @@ namespace CSharpLua.CoreSystem {
   public static class CoreSystemProvider {
     private const string CoreSystemDirectory = @".\CoreSystem";
 
-    public static IEnumerable<string> GetCoreSystemFiles(Wc3Api wc3Api = Wc3Api.War3Api) {
-      yield return Path.Combine(CoreSystemDirectory, @"Natives.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Core.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Interfaces.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Exception.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Number.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Char.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"String.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Boolean.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Delegate.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Enum.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"TimeSpan.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"DateTime.lua");
+    public static IEnumerable<string> GetCoreSystemFiles(Wc3Api wc3Api = Wc3Api.War3Api, string coreSystemDirectory = null) {
+      if (coreSystemDirectory == null)
+        coreSystemDirectory = CoreSystemDirectory;
+
+      yield return Path.Combine(coreSystemDirectory, @"Natives.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Core.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Interfaces.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Exception.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Number.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Char.lua");
+      yield return Path.Combine(coreSystemDirectory, @"String.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Boolean.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Delegate.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Enum.lua");
+      yield return Path.Combine(coreSystemDirectory, @"TimeSpan.lua");
+      yield return Path.Combine(coreSystemDirectory, @"DateTime.lua");
       switch (wc3Api) {
         case Wc3Api.War3Api:
-          yield return Path.Combine(CoreSystemDirectory, @"Wc3Api\War3Api.lua");
+          yield return Path.Combine(coreSystemDirectory, @"Wc3Api\War3Api.lua");
           break;
         case Wc3Api.WCSharp:
-          yield return Path.Combine(CoreSystemDirectory, @"Wc3Api\WCSharp.lua");
+          yield return Path.Combine(coreSystemDirectory, @"Wc3Api\WCSharp.lua");
           break;
       }
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\EqualityComparer.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Array.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Type.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\List.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\Dictionary.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\Queue.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\Stack.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\HashSet.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\LinkedList.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\Linq.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\SortedSet.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\SortedList.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\SortedDictionary.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Collections\PriorityQueue.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Convert.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Math.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Random.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Text\StringBuilder.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Console.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"IO\File.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Reflection\Assembly.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Threading\Timer.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Threading\Thread.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Threading\Task.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Utilities.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Globalization\Globalization.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Numerics\HashCodeHelper.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Numerics\Complex.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Numerics\Vector2.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Numerics\Vector3.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Numerics\Vector4.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Numerics\Matrix3x2.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Numerics\Matrix4x4.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Numerics\Plane.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Numerics\Quaternion.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\EqualityComparer.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Array.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Type.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\List.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\Dictionary.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\Queue.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\Stack.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\HashSet.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\LinkedList.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\Linq.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\SortedSet.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\SortedList.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\SortedDictionary.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Collections\PriorityQueue.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Convert.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Math.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Random.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Text\StringBuilder.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Console.lua");
+      yield return Path.Combine(coreSystemDirectory, @"IO\File.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Reflection\Assembly.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Threading\Timer.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Threading\Thread.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Threading\Task.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Utilities.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Globalization\Globalization.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Numerics\HashCodeHelper.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Numerics\Complex.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Numerics\Vector2.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Numerics\Vector3.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Numerics\Vector4.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Numerics\Matrix3x2.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Numerics\Matrix4x4.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Numerics\Plane.lua");
+      yield return Path.Combine(coreSystemDirectory, @"Numerics\Quaternion.lua");
     }
   }
 }
