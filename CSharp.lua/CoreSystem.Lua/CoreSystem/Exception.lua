@@ -25,7 +25,18 @@ local debug = debug
 local assert = assert
 local select = select
 
-local traceback = (debug and debug.traceback) or System.config.traceback or function () return "" end
+local traceback = (debug and debug.traceback) or System.config.traceback or function ()
+	local trace, separator = "", ""
+	local _, lastFile, tracePiece, lastTracePiece
+	for loopDepth = 3, 200 do
+		_, tracePiece = pcall(error, "", loopDepth)
+		if #tracePiece > 0 and lastTracePiece ~= tracePiece then
+			trace = trace .. separator .. ((tracePiece:match("^.-:") == lastFile) and tracePiece:match(":\x25d+"):sub(2,-1) or tracePiece:match("^.-:\x25d+"))
+			lastFile, lastTracePiece, separator = tracePiece:match("^.-:"), tracePiece, " <- "
+		end
+	end
+	return trace
+end
 System.traceback = traceback
 
 local resource = {
@@ -80,7 +91,8 @@ local function toString(this)
     count = count + 2
   end
   if stackTrace then
-    t[count] = stackTrace
+    t[count] = "\n"
+    t[count + 1] = stackTrace
   end
   return tconcat(t)
 end
@@ -110,7 +122,7 @@ local Exception = define("System.Exception", {
     return data
   end,
   traceback = function(this, lv)
-    this.errorStack = traceback("", lv and lv + 3 or 3)
+    this.errorStack = traceback("", lv and lv + 3 or 3):gsub("^%s*(.-)%s*$", "%1")
   end
 })
 
