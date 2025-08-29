@@ -1198,10 +1198,8 @@ local function hash(v)
     return c
   elseif t == "boolean" then
     return v and 1 or 0
-  elseif t == "function" then
-    return addr(v, 11)
   end
-  return addr(v)
+  return addr(v, #t + 2)
 end
 
 local function hashObj(obj)
